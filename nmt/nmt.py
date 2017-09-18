@@ -411,6 +411,8 @@ def ensure_compatible_hparams(hparams, default_hparams, hparams_path):
 def create_or_load_hparams(out_dir, default_hparams, hparams_path):
   """Create hparams or load hparams from out_dir."""
   hparams = utils.load_hparams(out_dir)
+
+  #print(hparams); assert False #debug
   if not hparams:
     hparams = default_hparams
     hparams = utils.maybe_parse_standard_hparams(
@@ -418,6 +420,17 @@ def create_or_load_hparams(out_dir, default_hparams, hparams_path):
     hparams = extend_hparams(hparams)
   else:
     hparams = ensure_compatible_hparams(hparams, default_hparams, hparams_path)
+
+  if FLAGS.inference_input_file:
+      hparams.src_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
+      hparams.tgt_vocab_file = os.path.join(out_dir, "../data/vocab.man")
+      hparams.out_dir = out_dir
+      hparams.best_bleu_dir = os.path.join(out_dir, "best_bleu")
+      hparams.train_prefix = os.path.join(out_dir, "../data/train")
+      hparams.dev_prefix = os.path.join(out_dir, "../data/dev_test")
+      hparams.vocab_prefix = os.path.join(out_dir, "../data/vocab")
+      hparams.rc_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
+      hparams.test_prefix = os.path.join(out_dir, "../data/test")
 
   # Save HParams
   utils.save_hparams(out_dir, hparams)
