@@ -411,6 +411,8 @@ def ensure_compatible_hparams(hparams, default_hparams, hparams_path):
 def create_or_load_hparams(out_dir, default_hparams, hparams_path):
   """Create hparams or load hparams from out_dir."""
   hparams = utils.load_hparams(out_dir)
+
+  #print(hparams); assert False #debug
   if not hparams:
     hparams = default_hparams
     hparams = utils.maybe_parse_standard_hparams(
@@ -420,7 +422,26 @@ def create_or_load_hparams(out_dir, default_hparams, hparams_path):
     hparams = ensure_compatible_hparams(hparams, default_hparams, hparams_path)
 
   # Save HParams
+  #print(value)
+  if FLAGS.inference_input_file:
+      hparams.src_vocab_file = os.path.join(out_dir, "../data/vocab.man")
+      hparams.tgt_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
+      hparams.out_dir = out_dir
+      hparams.best_bleu_dir = os.path.join(out_dir, "best_bleu")
+      hparams.train_prefix = os.path.join(out_dir, "../data/train")
+      hparams.dev_prefix = os.path.join(out_dir, "../data/dev_test")
+      hparams.vocab_prefix = os.path.join(out_dir, "../data/vocab")
+      hparams.rc_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
+      hparams.test_prefix = os.path.join(out_dir, "../data/test")
+
   utils.save_hparams(out_dir, hparams)
+
+  # print(out_dir)
+  # for metric in hparams.metrics:
+  #   print("best_" + metric + "_dir")
+  #   print(getattr(hparams, "best_" + metric + "_dir"))
+  #   # utils.save_hparams(getattr(hparams, "best_" + metric + "_dir"), hparams)
+  # assert False #debug
 
   for metric in hparams.metrics:
     utils.save_hparams(getattr(hparams, "best_" + metric + "_dir"), hparams)
@@ -493,3 +514,6 @@ if __name__ == "__main__":
   add_arguments(nmt_parser)
   FLAGS, unparsed = nmt_parser.parse_known_args()
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+
+
+  # print(out_dir); assert False #debug
