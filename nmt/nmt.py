@@ -421,11 +421,9 @@ def create_or_load_hparams(out_dir, default_hparams, hparams_path):
   else:
     hparams = ensure_compatible_hparams(hparams, default_hparams, hparams_path)
 
-  # Save HParams
-  #print(value)
   if FLAGS.inference_input_file:
-      hparams.src_vocab_file = os.path.join(out_dir, "../data/vocab.man")
-      hparams.tgt_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
+      hparams.src_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
+      hparams.tgt_vocab_file = os.path.join(out_dir, "../data/vocab.man")
       hparams.out_dir = out_dir
       hparams.best_bleu_dir = os.path.join(out_dir, "best_bleu")
       hparams.train_prefix = os.path.join(out_dir, "../data/train")
@@ -434,14 +432,8 @@ def create_or_load_hparams(out_dir, default_hparams, hparams_path):
       hparams.rc_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
       hparams.test_prefix = os.path.join(out_dir, "../data/test")
 
+  # Save HParams
   utils.save_hparams(out_dir, hparams)
-
-  # print(out_dir)
-  # for metric in hparams.metrics:
-  #   print("best_" + metric + "_dir")
-  #   print(getattr(hparams, "best_" + metric + "_dir"))
-  #   # utils.save_hparams(getattr(hparams, "best_" + metric + "_dir"), hparams)
-  # assert False #debug
 
   for metric in hparams.metrics:
     utils.save_hparams(getattr(hparams, "best_" + metric + "_dir"), hparams)
