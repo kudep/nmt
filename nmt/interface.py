@@ -564,15 +564,16 @@ params=dict()
 buf_path = "/tmp/nmt_chit-chat/buffers/"
 inf_input_file = os.path.join(buf_path, 'inference_input_buf')
 inf_output_file = os.path.join(buf_path, 'inference_output_buf')
+context_file = os.path.join(buf_path, 'context_buf')
 
 def mkprotecteddir(path):
     if not os.path.isdir(path):
         os.makedirs(path)
 
-def write_into_file(context,path):
+def write_into_file(context,path, addition = ""):
     with open(path, "wt") as f:
         for line in context:
-            f.write(line)
+            f.write(line+addition )
 
 def read_from_file(path):
     with open(path, "r") as pipe:
@@ -593,14 +594,70 @@ def preproc(line):
     line = re.sub(' +', ' ', line)
     return line
 
-context=None
-def init(model_dir):
+
+man_context=None
+cor_context=None
+context_len=250
+man_context_len=3
+def change_context(line, context_len=250, man_context_len=3, speaker=None):
+    global man_context
+    global cor_context
+    context=[]
+    if speaker=="MAN":
+        man_context.insert(0,line)
+    else:
+        cor_context.insert(0,line)
+    assert context_len >= man_context_len
+    man_iter = min(len(man_context), man_context_len)
+    man_context = man_context[0:man_iter]
+    cor_iter = min(len(cor_context), context_len)
+    man_context = man_context[0:man_iter]
+
+    for idx in range(man_iter):
+        context.append(man_context[idx])
+        context.append(cor_context[idx])
+
+    for idx in range(man_iter,cor_iter,1):
+        context.append(cor_context[idx])
+    context.reverse()
+    return context
+
+
+def ckpt_select(model_dir, ckpt_name = None, best_bleu = False):
+
+
+    # ckpt_name = os.path.join(model_dir, 'translate.ckpt-98000')
+    def get_checkp_from_file(path):
+        ckpt_name=None
+        with open(path) as f:
+             ckpt_name = f.readline().split('/')[-1].split('"')[0]
+        return ckpt_name
+
+
+    if ckpt_name:
+        model_path = os.path.join(model_dir, ckpt_name)
+    else:
+        if best_bleu:
+            checkpoint = os.path.join(model_dir,'best_bleu','checkpoint')
+            ckpt_name = get_checkp_from_file(checkpoint)
+            model_path = os.path.join(model_dir,'best_bleu',ckpt_name)
+        else:
+            checkpoint = os.path.join(model_dir,'checkpoint')
+            ckpt_name= get_checkp_from_file(checkpoint)
+            model_path = os.path.join(model_dir,ckpt_name)
+
+    return model_path
+
+
+
+def init(model_dir, ckpt_name = None, best_bleu = False, _context_len=3, _man_context_len=3):
+  model_dir = os.path.join(model_dir,'model')
   mkprotecteddir(buf_path)
   nmt_parser = argparse.ArgumentParser()
   add_arguments(nmt_parser)
-  ckpt_file = os.path.join(model_dir, 'translate.ckpt-98000')
+  ckpt_file = ckpt_select(model_dir,ckpt_name, best_bleu)
+  print("Будет использована модель {}".format(ckpt_file))
   ext_add(nmt_parser,model_dir,ckpt_file)
-  #create_pipes(pipe_path,inf_input_pipe,inf_output_pipe)
   params['flags'], unparsed = nmt_parser.parse_known_args()
   global FLAGS
   FLAGS = params['flags']
@@ -609,26 +666,38 @@ def init(model_dir):
   params['train_fn'] =  train.train
   params['model_dir'] =  model_dir
   params['inference_fn'] = inference.inference
-  global context
-  context=[]
+
+  global context_len
+  global man_context_len
+  context_len = _context_len
+  man_context_len = _man_context_len
+  global man_context
+  global cor_context
+  man_context=[]
+  cor_context=[]
+
+def context_into_buf(context):
+  write_into_file(context,context_file,'\n')
 
 def send(msg=''):
     global context
     man_start_tag = " <MAN_START> "
     cor_start_tag = " <COR_START> "
     line = re.sub(' +', ' ', cor_start_tag + preproc(msg))
-    context.append(line)
+    context = change_context(line, context_len, man_context_len)
     write_into_file(context,inf_input_file)
     run_main(params['flags'], params['default_hparams'], params['train_fn'], params['inference_fn'])
     answer = read_from_file(inf_output_file)
     line = re.sub(' +', ' ', man_start_tag + preproc(answer))
-    context.append(line)
+    context = change_context(line, context_len, man_context_len, "MAN")
+    context_into_buf(context)
     return answer
 
-def interactiv():
+def interactive_dialogue(prompt = 'Вы: '):
     while True:
-        answer = send(input('Вы: '))
+        answer = send(input(prompt))
         print("NMT: " + answer)
+
 
 def get_content():
   return context
