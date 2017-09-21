@@ -104,3 +104,6 @@ ENV/
 # atom ftp
 .ftpconfig
 .ftpignore
+
+# tmp my files
+checklist.md
