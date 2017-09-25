@@ -3,7 +3,7 @@
 #### Model
 
 ```
-wget  http://share.ipavlov.mipt.ru:8080/repository/models/chitchat/nmt-chitchat-v0.2.1.tgz
+wget http://share.ipavlov.mipt.ru:8080/repository/models/chitchat/nmt-chitchat-v0.3.tgz 
 export CHITCHAT_MODEL=<PATH_TO_MODEL>
 ```
 
