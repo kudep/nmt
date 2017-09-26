@@ -650,7 +650,7 @@ def ckpt_select(model_dir, ckpt_name = None, best_bleu = False):
 
 
 
-def init(model_dir, ckpt_name = None, best_bleu = False, _context_len=3, _man_context_len=3):
+def init(model_dir, ckpt_name = None, best_bleu = False, _context_len=5, _man_context_len=2):
   model_dir = os.path.join(model_dir,'model')
   mkprotecteddir(buf_path)
   nmt_parser = argparse.ArgumentParser()
