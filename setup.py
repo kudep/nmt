@@ -30,7 +30,7 @@ def read_requirements():
     return reqs
 
 setup(name='nmt-chit-chat',
-      version='0.3.1',
+      version='0.3.2',
       description='NMT Chit Chat',
       url='https://github.com/deepmipt/nmt-chit-chat',
       author='Neural Networks and Deep Learning lab, MIPT',
