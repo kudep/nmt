@@ -27,6 +27,7 @@ import time
 import numpy as np
 import tensorflow as tf
 
+verbose_output = True
 
 def check_tensorflow_version():
   if tf.__version__ < "1.2.1":
@@ -51,7 +52,7 @@ def print_time(s, start_time):
 
 def print_out(s, f=None, new_line=True):
   """Similar to print but with support to flush and output to a file."""
-  return None
+  if not verbose_output: return None
   if isinstance(s, bytes):
     s = s.decode("utf-8")
 

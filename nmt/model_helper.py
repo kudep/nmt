@@ -200,6 +200,38 @@ def create_infer_model(model_creator, hparams, scope=None, single_cell_fn=None):
       batch_size_placeholder=batch_size_placeholder,
       iterator=iterator)
 
+def load_embeddings(embeddings_path):
+    vocab = []
+    embd = []
+    with open(embeddings_path, 'r') as embedd_f:
+        for line in embedd_f.readlines():
+            row = line.strip().split(' ')
+            vocab.append(row[0])
+            embd.append(row[1:])
+    return len(vocab),embd
+
+def make_embed(emb_name, shape, dtype = tf.float32, embeddings_path = None, representation_name = ''):
+  if embeddings_path:
+      vocab_size, embd = load_embeddings(embeddings_path)
+      embedding_dim = len(embd[0])
+      assert vocab_size == shape[0]
+      # Insert pretrain embedding
+      representation = tf.constant(embd,
+          name = representation_name)
+    #    representation = tf.get_variable(
+    #        representation_name, [shape[0],embedding_dim],
+    #         dtype, trainable=False)
+      # Change representation size
+      embedding_w = tf.get_variable(
+          "embedding_weights", [embedding_dim, shape[1]], dtype)
+      embedding_b = tf.get_variable(
+          "embedding_biases", [shape[1]], dtype)
+      embedding = tf.Variable(tf.matmul(representation_name, transmitter_w) + transmitter_b,
+            name = emb_name)
+  else:
+      embedding = tf.get_variable(
+          emb_name, shape, dtype)
+  return embedding
 
 def create_emb_for_encoder_and_decoder(share_vocab,
                                        src_vocab_size,
@@ -208,7 +240,10 @@ def create_emb_for_encoder_and_decoder(share_vocab,
                                        tgt_embed_size,
                                        dtype=tf.float32,
                                        num_partitions=0,
-                                       scope=None):
+                                       scope=None,
+                                       pretrain_enc_emb_path = None,
+                                       pretrain_dec_emb_path = None
+                                       ):
   """Create embedding matrix for both encoder and decoder.
 
   Args:
@@ -250,20 +285,27 @@ def create_emb_for_encoder_and_decoder(share_vocab,
         raise ValueError("Share embedding but different src/tgt vocab sizes"
                          " %d vs. %d" % (src_vocab_size, tgt_vocab_size))
       utils.print_out("# Use the same source embeddings for target")
-      embedding = tf.get_variable(
-          "embedding_share", [src_vocab_size, src_embed_size], dtype)
+      embedding = make_embed(
+          "embedding_share", [src_vocab_size, src_embed_size], dtype,
+          embeddings_path = pretrain_enc_emb_path,
+          representation_name = "loaded_embedding_share")
       embedding_encoder = embedding
       embedding_decoder = embedding
     else:
       with tf.variable_scope("encoder", partitioner=partitioner):
-        embedding_encoder = tf.get_variable(
-            "embedding_encoder", [src_vocab_size, src_embed_size], dtype)
+        embedding_encoder = make_embed(
+            "embedding_encoder", [src_vocab_size, src_embed_size], dtype,
+            embeddings_path = pretrain_enc_emb_path,
+            representation_name = "loaded_embedding_encoder")
 
       with tf.variable_scope("decoder", partitioner=partitioner):
-        embedding_decoder = tf.get_variable(
-            "embedding_decoder", [tgt_vocab_size, tgt_embed_size], dtype)
+        embedding_decoder = make_embed(
+            "embedding_decoder", [tgt_vocab_size, tgt_embed_size], dtype,
+            embeddings_path = pretrain_dec_emb_path,
+            representation_name = "loaded_embedding_decoder")
 
   return embedding_encoder, embedding_decoder
+
 
 
 def _single_cell(unit_type, num_units, forget_bias, dropout,

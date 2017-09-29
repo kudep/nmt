@@ -35,6 +35,7 @@ utils.check_tensorflow_version()
 
 FLAGS = None
 
+__all__ = ["add_arguments", "create_hparams", "run_main"]
 
 def add_arguments(parser):
   """Build ArgumentParser."""
@@ -57,6 +58,10 @@ def add_arguments(parser):
                       help="Whether to use time-major mode for dynamic RNN.")
   parser.add_argument("--num_embeddings_partitions", type=int, default=0,
                       help="Number of partitions for embedding vars.")
+  parser.add_argument("--pretrain_enc_emb_path", type=str, default=None,
+                      help="Path to pretrain embeddings for encoder.")
+  parser.add_argument("--pretrain_dec_emb_path", type=str, default=None,
+                      help="Path to pretrain embeddings for decoder.")
 
   # attention mechanisms
   parser.add_argument("--attention", type=str, default="", help="""\
@@ -226,6 +231,8 @@ def add_arguments(parser):
                       help="Task id of the worker.")
   parser.add_argument("--num_workers", type=int, default=1,
                       help="Number of workers (inference only).")
+  parser.add_argument("--verbose_output", type="bool", default=True,
+                      help="Verbose output.")
 
 
 def create_hparams(flags):
@@ -249,6 +256,8 @@ def create_hparams(flags):
       residual=flags.residual,
       time_major=flags.time_major,
       num_embeddings_partitions=flags.num_embeddings_partitions,
+      pretrain_enc_emb_path=flags.pretrain_enc_emb_path,
+      pretrain_dec_emb_path=flags.pretrain_dec_emb_path,
 
       # Attention mechanisms
       attention=flags.attention,
@@ -297,6 +306,9 @@ def create_hparams(flags):
       metrics=flags.metrics.split(","),
       log_device_placement=flags.log_device_placement,
       random_seed=flags.random_seed,
+
+      # Job info
+      verbose_output=flags.verbose_output,
   )
 
 
@@ -408,7 +420,7 @@ def ensure_compatible_hparams(hparams, default_hparams, hparams_path):
   return hparams
 
 
-def create_or_load_hparams(out_dir, default_hparams, hparams_path):
+def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path):
   """Create hparams or load hparams from out_dir."""
   hparams = utils.load_hparams(out_dir)
 
@@ -421,7 +433,7 @@ def create_or_load_hparams(out_dir, default_hparams, hparams_path):
   else:
     hparams = ensure_compatible_hparams(hparams, default_hparams, hparams_path)
 
-  if FLAGS.inference_input_file:
+  if flags.inference_input_file:
       hparams.src_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
       hparams.tgt_vocab_file = os.path.join(out_dir, "../data/vocab.man")
       hparams.out_dir = out_dir
@@ -445,11 +457,11 @@ def create_or_load_hparams(out_dir, default_hparams, hparams_path):
 
 def run_main(flags, default_hparams, train_fn, inference_fn, target_session=""):
   """Run main."""
+  utils.verbose_output = flags.verbose_output
   # Job
   jobid = flags.jobid
   num_workers = flags.num_workers
   utils.print_out("# Job id %d" % jobid)
-
   # Random
   random_seed = flags.random_seed
   if random_seed is not None and random_seed > 0:
@@ -462,7 +474,7 @@ def run_main(flags, default_hparams, train_fn, inference_fn, target_session=""):
   if not tf.gfile.Exists(out_dir): tf.gfile.MakeDirs(out_dir)
 
   # Load hparams.
-  hparams = create_or_load_hparams(out_dir, default_hparams, flags.hparams_path)
+  hparams = create_or_load_hparams(flags,out_dir, default_hparams, flags.hparams_path)
 
   if flags.inference_input_file:
     # Inference indices
