@@ -283,12 +283,16 @@ def make_embed(emb_name, shape, dtype = tf.float32, pretrain_info= None,):
       # Insert pretrain embedding
       pretrain_emb = pretrain_info[0]
       emb_size = pretrain_info[1]
-      embedding_w = tf.get_variable(
-          "embedding_weights", [emb_size, shape[1]], dtype)
-      embedding_b = tf.get_variable(
-          "embedding_biases", [shape[1]], dtype)
-      embedding = tf.Variable(tf.matmul(pretrain_emb, embedding_w) + embedding_b,
-            name = emb_name)
+      if emb_size != shape[1]:
+          embedding_w = tf.get_variable(
+            "embedding_weights", [emb_size, shape[1]], dtype)
+          embedding_b = tf.get_variable(
+            "embedding_biases", [shape[1]], dtype)
+          embedding = tf.Variable(tf.matmul(pretrain_emb, embedding_w) + embedding_b,
+                name = emb_name)
+      else:
+          embedding = pretrain_emb
+
   else:
       embedding = tf.get_variable(
           emb_name, shape, dtype)
