@@ -207,6 +207,28 @@ def train(hparams, scope=None, target_session=""):
   summary_writer = tf.summary.FileWriter(
       os.path.join(out_dir, summary_name), train_model.graph)
 
+  if hparams.pretrain_enc_emb_path:
+      eval_sess.run(
+          eval_model.init_enc_emb,
+          feed_dict={eval_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path)})
+
+  if hparams.pretrain_dec_emb_path:
+      eval_sess.run(
+          eval_model.init_dec_emb,
+          feed_dict={eval_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path)})
+
+
+  if hparams.pretrain_enc_emb_path:
+      infer_sess.run(
+          infer_model.init_enc_emb,
+          feed_dict={infer_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path)})
+
+  if hparams.pretrain_dec_emb_path:
+      infer_sess.run(
+          infer_model.init_dec_emb,
+          feed_dict={infer_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path)})
+
+
   # First evaluation
   run_full_eval(
       model_dir, infer_model, infer_sess,
@@ -236,6 +258,17 @@ def train(hparams, scope=None, target_session=""):
   train_sess.run(
       train_model.iterator.initializer,
       feed_dict={train_model.skip_count_placeholder: skip_count})
+
+  # Initialize Embeddings
+  if hparams.pretrain_enc_emb_path:
+    train_sess.run(
+        train_model.init_enc_emb,
+        feed_dict={train_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path)})
+
+  if hparams.pretrain_dec_emb_path:
+    train_sess.run(
+        train_model.init_dec_emb,
+        feed_dict={train_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path)})
 
   while global_step < num_train_steps:
     ### Run a step ###

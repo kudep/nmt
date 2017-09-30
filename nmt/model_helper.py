@@ -17,7 +17,8 @@ __all__ = [
     "get_initializer", "get_device_str",
     "create_train_model", "create_eval_model", "create_infer_model",
     "create_emb_for_encoder_and_decoder", "create_rnn_cell",
-    "gradient_clip", "create_or_load_model", "load_model", "compute_perplexity"
+    "gradient_clip", "create_or_load_model", "load_model", "compute_perplexity",
+    "load_embeddings"
 ]
 
 
@@ -47,7 +48,11 @@ def get_device_str(device_id, num_gpus):
 
 class TrainModel(
     collections.namedtuple("TrainModel", ("graph", "model", "iterator",
-                                          "skip_count_placeholder"))):
+                                          "skip_count_placeholder",
+                                          "init_enc_emb",
+                                          "init_dec_emb",
+                                          "enc_emb_placeholder",
+                                          "dec_emb_placeholder"))):
   pass
 
 
@@ -68,7 +73,15 @@ def create_train_model(
 
     src_dataset = tf.contrib.data.TextLineDataset(src_file)
     tgt_dataset = tf.contrib.data.TextLineDataset(tgt_file)
+
     skip_count_placeholder = tf.placeholder(shape=(), dtype=tf.int64)
+
+    enc_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
+    dec_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
+    pretrain_enc_info, init_enc_emb = set_pretrain_info (hparams.pretrain_enc_emb_path,
+                                        enc_emb_placeholder, 'pretrain_enc_emb')
+    pretrain_dec_info, init_dec_emb = set_pretrain_info (hparams.pretrain_dec_emb_path,
+                                        dec_emb_placeholder, 'pretrain_dec_emb')
 
     iterator = iterator_utils.get_iterator(
         src_dataset,
@@ -94,6 +107,8 @@ def create_train_model(
           mode=tf.contrib.learn.ModeKeys.TRAIN,
           source_vocab_table=src_vocab_table,
           target_vocab_table=tgt_vocab_table,
+          pretrain_enc_info=pretrain_enc_info,
+          pretrain_dec_info=pretrain_dec_info,
           scope=scope,
           single_cell_fn=single_cell_fn)
 
@@ -101,13 +116,21 @@ def create_train_model(
       graph=graph,
       model=model,
       iterator=iterator,
-      skip_count_placeholder=skip_count_placeholder)
+      skip_count_placeholder=skip_count_placeholder,
+      init_enc_emb=init_enc_emb,
+      init_dec_emb=init_dec_emb,
+      enc_emb_placeholder=enc_emb_placeholder,
+      dec_emb_placeholder=dec_emb_placeholder)
 
 
 class EvalModel(
     collections.namedtuple("EvalModel",
                            ("graph", "model", "src_file_placeholder",
-                            "tgt_file_placeholder", "iterator"))):
+                            "tgt_file_placeholder", "iterator",
+                            "init_enc_emb",
+                            "init_dec_emb",
+                            "enc_emb_placeholder",
+                            "dec_emb_placeholder"))):
   pass
 
 
@@ -124,6 +147,11 @@ def create_eval_model(model_creator, hparams, scope=None, single_cell_fn=None):
     tgt_file_placeholder = tf.placeholder(shape=(), dtype=tf.string)
     src_dataset = tf.contrib.data.TextLineDataset(src_file_placeholder)
     tgt_dataset = tf.contrib.data.TextLineDataset(tgt_file_placeholder)
+
+    enc_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
+    dec_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
+    pretrain_enc_info, init_enc_emb = set_pretrain_info (hparams.pretrain_enc_emb_path, enc_emb_placeholder, 'pretrain_enc_emb')
+    pretrain_dec_info, init_dec_emb = set_pretrain_info (hparams.pretrain_dec_emb_path, dec_emb_placeholder, 'pretrain_dec_emb')
     iterator = iterator_utils.get_iterator(
         src_dataset,
         tgt_dataset,
@@ -143,6 +171,8 @@ def create_eval_model(model_creator, hparams, scope=None, single_cell_fn=None):
         mode=tf.contrib.learn.ModeKeys.EVAL,
         source_vocab_table=src_vocab_table,
         target_vocab_table=tgt_vocab_table,
+        pretrain_enc_info=pretrain_enc_info,
+        pretrain_dec_info=pretrain_dec_info,
         scope=scope,
         single_cell_fn=single_cell_fn)
   return EvalModel(
@@ -150,13 +180,21 @@ def create_eval_model(model_creator, hparams, scope=None, single_cell_fn=None):
       model=model,
       src_file_placeholder=src_file_placeholder,
       tgt_file_placeholder=tgt_file_placeholder,
-      iterator=iterator)
+      iterator=iterator,
+      init_enc_emb=init_enc_emb,
+      init_dec_emb=init_dec_emb,
+      enc_emb_placeholder=enc_emb_placeholder,
+      dec_emb_placeholder=dec_emb_placeholder)
 
 
 class InferModel(
     collections.namedtuple("InferModel",
                            ("graph", "model", "src_placeholder",
-                            "batch_size_placeholder", "iterator"))):
+                            "batch_size_placeholder", "iterator",
+                            "init_enc_emb",
+                            "init_dec_emb",
+                            "enc_emb_placeholder",
+                            "dec_emb_placeholder"))):
   pass
 
 
@@ -177,6 +215,14 @@ def create_infer_model(model_creator, hparams, scope=None, single_cell_fn=None):
 
     src_dataset = tf.contrib.data.Dataset.from_tensor_slices(
         src_placeholder)
+
+    enc_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
+    dec_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
+    pretrain_enc_info, init_enc_emb = set_pretrain_info (hparams.pretrain_enc_emb_path,
+                                        enc_emb_placeholder, 'pretrain_enc_emb')
+    pretrain_dec_info, init_dec_emb = set_pretrain_info (hparams.pretrain_dec_emb_path,
+                                        dec_emb_placeholder, 'pretrain_dec_emb')
+
     iterator = iterator_utils.get_infer_iterator(
         src_dataset,
         src_vocab_table,
@@ -190,6 +236,8 @@ def create_infer_model(model_creator, hparams, scope=None, single_cell_fn=None):
         mode=tf.contrib.learn.ModeKeys.INFER,
         source_vocab_table=src_vocab_table,
         target_vocab_table=tgt_vocab_table,
+        pretrain_enc_info=pretrain_enc_info,
+        pretrain_dec_info=pretrain_dec_info,
         reverse_target_vocab_table=reverse_tgt_vocab_table,
         scope=scope,
         single_cell_fn=single_cell_fn)
@@ -198,35 +246,48 @@ def create_infer_model(model_creator, hparams, scope=None, single_cell_fn=None):
       model=model,
       src_placeholder=src_placeholder,
       batch_size_placeholder=batch_size_placeholder,
-      iterator=iterator)
+      iterator=iterator,
+      init_enc_emb=init_enc_emb,
+      init_dec_emb=init_dec_emb,
+      enc_emb_placeholder=enc_emb_placeholder,
+      dec_emb_placeholder=dec_emb_placeholder)
+
+def set_pretrain_info (embeddings_path, embeddings_placeholder, name):
+    if embeddings_path:
+       vocab = []
+       embd = []
+       with open(embeddings_path, 'r') as embedd_f:
+           for line in embedd_f.readlines():
+               row = line.strip().split(' ')
+               vocab.append(row[0])
+               embd.append(row[1:])
+       pretrain_emb = tf.Variable(tf.constant(0.0, shape=[len(vocab), len(embd[0])]),
+                    trainable=False, name=name)
+       emb_init = pretrain_emb.assign(embeddings_placeholder)
+       return (pretrain_emb,len(embd[0])), emb_init
+    else:
+        return None, None
 
 def load_embeddings(embeddings_path):
-    vocab = []
-    embd = []
-    with open(embeddings_path, 'r') as embedd_f:
-        for line in embedd_f.readlines():
-            row = line.strip().split(' ')
-            vocab.append(row[0])
-            embd.append(row[1:])
-    return len(vocab),embd
+  vocab = []
+  embd = []
+  with open(embeddings_path, 'r') as embedd_f:
+      for line in embedd_f.readlines():
+          row = line.strip().split(' ')
+          vocab.append(row[0])
+          embd.append(row[1:])
+  return embd
 
-def make_embed(emb_name, shape, dtype = tf.float32, embeddings_path = None, representation_name = ''):
-  if embeddings_path:
-      vocab_size, embd = load_embeddings(embeddings_path)
-      embedding_dim = len(embd[0])
-      assert vocab_size == shape[0]
+def make_embed(emb_name, shape, dtype = tf.float32, pretrain_info= None,):
+  if pretrain_info:
       # Insert pretrain embedding
-      representation = tf.constant(embd,
-          name = representation_name)
-    #    representation = tf.get_variable(
-    #        representation_name, [shape[0],embedding_dim],
-    #         dtype, trainable=False)
-      # Change representation size
+      pretrain_emb = pretrain_info[0]
+      emb_size = pretrain_info[1]
       embedding_w = tf.get_variable(
-          "embedding_weights", [embedding_dim, shape[1]], dtype)
+          "embedding_weights", [emb_size, shape[1]], dtype)
       embedding_b = tf.get_variable(
           "embedding_biases", [shape[1]], dtype)
-      embedding = tf.Variable(tf.matmul(representation_name, transmitter_w) + transmitter_b,
+      embedding = tf.Variable(tf.matmul(pretrain_emb, embedding_w) + embedding_b,
             name = emb_name)
   else:
       embedding = tf.get_variable(
@@ -241,8 +302,8 @@ def create_emb_for_encoder_and_decoder(share_vocab,
                                        dtype=tf.float32,
                                        num_partitions=0,
                                        scope=None,
-                                       pretrain_enc_emb_path = None,
-                                       pretrain_dec_emb_path = None
+                                       pretrain_enc_info = None,
+                                       pretrain_dec_info = None
                                        ):
   """Create embedding matrix for both encoder and decoder.
 
@@ -287,22 +348,19 @@ def create_emb_for_encoder_and_decoder(share_vocab,
       utils.print_out("# Use the same source embeddings for target")
       embedding = make_embed(
           "embedding_share", [src_vocab_size, src_embed_size], dtype,
-          embeddings_path = pretrain_enc_emb_path,
-          representation_name = "loaded_embedding_share")
+          pretrain_info = pretrain_enc_info,)
       embedding_encoder = embedding
       embedding_decoder = embedding
     else:
       with tf.variable_scope("encoder", partitioner=partitioner):
         embedding_encoder = make_embed(
             "embedding_encoder", [src_vocab_size, src_embed_size], dtype,
-            embeddings_path = pretrain_enc_emb_path,
-            representation_name = "loaded_embedding_encoder")
+            pretrain_info = pretrain_enc_info)
 
       with tf.variable_scope("decoder", partitioner=partitioner):
         embedding_decoder = make_embed(
             "embedding_decoder", [tgt_vocab_size, tgt_embed_size], dtype,
-            embeddings_path = pretrain_dec_emb_path,
-            representation_name = "loaded_embedding_decoder")
+            pretrain_info = pretrain_dec_info)
 
   return embedding_encoder, embedding_decoder
 

@@ -43,6 +43,8 @@ class BaseModel(object):
                iterator,
                source_vocab_table,
                target_vocab_table,
+               pretrain_enc_info=None,
+               pretrain_dec_info=None,
                reverse_target_vocab_table=None,
                scope=None,
                single_cell_fn=None):
@@ -65,6 +67,8 @@ class BaseModel(object):
     self.mode = mode
     self.src_vocab_table = source_vocab_table
     self.tgt_vocab_table = target_vocab_table
+    self.pretrain_enc_info=pretrain_enc_info
+    self.pretrain_dec_info=pretrain_dec_info
 
     self.src_vocab_size = hparams.src_vocab_size
     self.tgt_vocab_size = hparams.tgt_vocab_size
@@ -179,6 +183,8 @@ class BaseModel(object):
             share_vocab=hparams.share_vocab,
             src_vocab_size=self.src_vocab_size,
             tgt_vocab_size=self.tgt_vocab_size,
+            pretrain_enc_info=self.pretrain_enc_info,
+            pretrain_dec_info=self.pretrain_dec_info,
             src_embed_size=hparams.num_units,
             tgt_embed_size=hparams.num_units,
             num_partitions=hparams.num_embeddings_partitions,
