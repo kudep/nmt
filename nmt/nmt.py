@@ -35,7 +35,7 @@ utils.check_tensorflow_version()
 
 FLAGS = None
 
-__all__ = ["add_arguments", "create_hparams", "run_main"]
+__all__ = ["add_arguments", "create_hparams", "preparation_for_inference"]
 
 def add_arguments(parser):
   """Build ArgumentParser."""
@@ -420,7 +420,7 @@ def ensure_compatible_hparams(hparams, default_hparams, hparams_path):
   return hparams
 
 
-def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path):
+def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path, embedding_generation=False):
   """Create hparams or load hparams from out_dir."""
   hparams = utils.load_hparams(out_dir)
 
@@ -433,16 +433,56 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path):
   else:
     hparams = ensure_compatible_hparams(hparams, default_hparams, hparams_path)
 
+  if flags.inference_input_file is None:
+      hparams.add_hparam("default_src_vocab_file", hparams.src_vocab_file)
+      hparams.add_hparam("default_tgt_vocab_file", hparams.tgt_vocab_file)
+      hparams.add_hparam("default_pretrain_enc_emb_path", hparams.pretrain_enc_emb_path)
+      hparams.add_hparam("default_pretrain_dec_emb_path", hparams.pretrain_dec_emb_path)
+
   if flags.inference_input_file:
-      hparams.src_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
-      hparams.tgt_vocab_file = os.path.join(out_dir, "../data/vocab.man")
+
+      def get_path_tail(src_path, depth = 2):
+          path_tail = "/".join(src_path.split("/")[-depth:])
+          return path_tail
+
+      base_dir = "/".join(out_dir.split("/")[:-1])
+
+      hparams.train_prefix = os.path.join(base_dir,
+                                get_path_tail(hparams.train_prefix))
+      hparams.dev_prefix = os.path.join(base_dir,
+                                get_path_tail(hparams.dev_prefix))
+      hparams.vocab_prefix = os.path.join(base_dir,
+                                get_path_tail(hparams.vocab_prefix))
+
       hparams.out_dir = out_dir
       hparams.best_bleu_dir = os.path.join(out_dir, "best_bleu")
-      hparams.train_prefix = os.path.join(out_dir, "../data/train")
-      hparams.dev_prefix = os.path.join(out_dir, "../data/dev_test")
-      hparams.vocab_prefix = os.path.join(out_dir, "../data/vocab")
-      hparams.rc_vocab_file = os.path.join(out_dir, "../data/vocab.cor")
-      hparams.test_prefix = os.path.join(out_dir, "../data/test")
+
+      if embedding_generation:
+          pretrain_enc_emb_path = "./gen/encoder_embeddings.emb"
+          pretrain_dec_emb_path = "./gen/decoder_embeddings.emb"
+          src_vocab_file = "./gen/src.voc"
+          #for debug----------------------------
+          tgt_vocab_file = hparams.tgt_vocab_file
+          #   tgt_vocab_file = "./gen/tgt.voc"
+      else:
+          if hparams.pretrain_enc_emb_path: pretrain_enc_emb_path = get_path_tail(hparams.default_pretrain_enc_emb_path)
+          if hparams.pretrain_dec_emb_path: pretrain_dec_emb_path = get_path_tail(hparams.default_pretrain_dec_emb_path)
+          src_vocab_file = get_path_tail(hparams.default_src_vocab_file)
+          tgt_vocab_file = get_path_tail(hparams.default_tgt_vocab_file)
+
+      hparams.src_vocab_file = os.path.join(base_dir,
+                                    get_path_tail(src_vocab_file))
+      hparams.tgt_vocab_file = os.path.join(base_dir,
+                                    get_path_tail(tgt_vocab_file))
+
+      if hparams.pretrain_enc_emb_path:
+          hparams.pretrain_enc_emb_path = os.path.join(base_dir,
+                                    get_path_tail(hparams.pretrain_enc_emb_path))
+      if hparams.pretrain_dec_emb_path:
+          hparams.pretrain_dec_emb_path = os.path.join(base_dir,
+                                    get_path_tail(hparams.pretrain_dec_emb_path))
+
+
 
   # Save HParams
   utils.save_hparams(out_dir, hparams)
@@ -454,6 +494,55 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path):
   utils.print_hparams(hparams)
   return hparams
 
+def preparation_for_inference(flags, default_hparams, train_fn, inference_fn, target_session="", embedding_generation=True):
+  """Preparation for inference."""
+  utils.verbose_output = flags.verbose_output
+  # Job
+  jobid = flags.jobid
+  num_workers = flags.num_workers
+  utils.print_out("# Job id %d" % jobid)
+  # Random
+  random_seed = flags.random_seed
+  if random_seed is not None and random_seed > 0:
+    utils.print_out("# Set random seed to %d" % random_seed)
+    random.seed(random_seed + jobid)
+    np.random.seed(random_seed + jobid)
+
+  ## Train / Decode
+  out_dir = flags.out_dir
+  if not tf.gfile.Exists(out_dir): tf.gfile.MakeDirs(out_dir)
+
+  # Load hparams.
+  hparams = create_or_load_hparams(flags,out_dir, default_hparams, flags.hparams_path, embedding_generation=embedding_generation)
+
+  if flags.inference_input_file:
+    # Inference indices
+    hparams.inference_indices = None
+    if flags.inference_list:
+      (hparams.inference_indices) = (
+          [int(token)  for token in flags.inference_list.split(",")])
+
+    # Inference
+    trans_file = flags.inference_output_file
+    ckpt = flags.ckpt
+    if not ckpt:
+      ckpt = tf.train.latest_checkpoint(out_dir)
+    return inference_fn, [ckpt, flags.inference_input_file,
+                 trans_file, hparams, num_workers, jobid]
+
+
+    # # Evaluation
+    # ref_file = flags.inference_ref_file
+    # if ref_file and tf.gfile.Exists(trans_file):
+    #   for metric in hparams.metrics:
+    #     score = evaluation_utils.evaluate(
+    #         ref_file,
+    #         trans_file,
+    #         metric,
+    #         hparams.bpe_delimiter)
+    #     utils.print_out("  %s: %.1f" % (metric, score))
+  else:
+    return None
 
 def run_main(flags, default_hparams, train_fn, inference_fn, target_session=""):
   """Run main."""

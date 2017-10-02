@@ -32,6 +32,7 @@ from .utils import evaluation_utils
 from .utils import misc_utils as utils
 from .utils import vocab_utils
 from .nmt import *
+from .vocab_generator import *
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '5'
 tf.logging.set_verbosity(tf.logging.ERROR)
@@ -50,7 +51,7 @@ class AgentMemory():
         return self.cor_context, self.man_context, self.context, self.context_file
 
 class Agents():
-    def __init__(self, model_dir, ckpt_name = None, best_bleu = False, context_len=5, man_context_len=1, verbose_output = False):
+    def __init__(self, model_dir, ckpt_name = None, best_bleu = False, context_len=5, man_context_len=1, verbose_output = False, embedding_generator_path=None):
         #Files
         assert not model_dir is None
         buf_path = "/tmp/nmt_chit-chat/buffers/"
@@ -58,25 +59,43 @@ class Agents():
         self.inf_output_file = os.path.join(buf_path, 'inference_output_buf')
         self.base_context_file = os.path.join(buf_path, 'context')
 
+        model_gen = os.path.join(model_dir,'gen')
         model_dir = os.path.join(model_dir,'model')
         self._mkprotecteddir(buf_path)
         nmt_parser = argparse.ArgumentParser()
         add_arguments(nmt_parser)
         ckpt_file = self._ckpt_select(model_dir,ckpt_name, best_bleu)
+        self.embed_gen_flag = False
+        self.embeddings_generator = None
+        if embedding_generator_path:
+            print("Инициализация генератора эмбеддингов, будет использован файл {}".format(embedding_generator_path))
+            self.embeddings_generator = EmbeddingsGenerator(embedding_generator_path)
+            self.embed_gen_flag = True
+            self._mkprotecteddir(model_gen)
+            self.pretrain_enc_emb_path = os.path.join(model_gen, "encoder_embeddings.emb")
+            # pretrain_dec_emb_path = "./gen/decoder_embeddings.emb"
+            self.src_vocab_file = os.path.join(model_gen, "src.voc")
+            # tgt_vocab_file = "./gen/tgt.voc"
+
         print("Будет использована модель {}".format(ckpt_file))
 
         self._ext_add_options(nmt_parser,model_dir,ckpt_file, verbose_output)
         flags, unparsed = nmt_parser.parse_known_args()
 
         # Insert in class
-        self.flags = flags
-        self.default_hparams = create_hparams(flags)
-        self.train_fn =  train.train
+        flags = flags
+        default_hparams = create_hparams(flags)
+        train_fn =  train.train
+        inference_fn = inference.inference
+        self.nmt_model, self.nmt_arg = preparation_for_inference(flags,
+                                        default_hparams, train_fn, inference_fn,
+                                        embedding_generation = self.embed_gen_flag)
+
         self.model_dir =  model_dir
-        self.inference_fn = inference.inference
         self.context_len = context_len
         self.man_context_len = man_context_len
         self.agents_memory = dict()
+
 
 
     def deploy_agent(self, agent_id = 0, reset = True):
@@ -97,9 +116,16 @@ class Agents():
         line = re.sub(' +', ' ', cor_start_tag + self._preproc(msg))
         self._change_agent_context(line, agent_id, "COR")
         _, _, context, _ = self.agents_memory[agent_id].get_memory()
-        #Generate answer
+        #Update work files
+        if self.embed_gen_flag:
+            self.embeddings_generator.load_vocab_from_list_of_rows(context,
+                                        tag_list = ["<unk>", "<s>", "</s>"])
+            #for encoder
+            self.embeddings_generator.save_embeddings(self.pretrain_enc_emb_path)
+            self.embeddings_generator.save_embedded_vocab(self.src_vocab_file)
         self._write_into_file(context, self.inf_input_file)
-        run_main(self.flags, self.default_hparams, self.train_fn, self.inference_fn)
+        #Start model for generation
+        self.nmt_model(*self.nmt_arg)
         answer = self._read_from_file(self.inf_output_file)
         #Save answer
         line = re.sub(' +', ' ', man_start_tag + self._preproc(answer))

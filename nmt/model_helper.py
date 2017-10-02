@@ -264,7 +264,7 @@ def set_pretrain_info (embeddings_path, embeddings_placeholder, name):
        pretrain_emb = tf.Variable(tf.constant(0.0, shape=[len(vocab), len(embd[0])]),
                     trainable=False, name=name)
        emb_init = pretrain_emb.assign(embeddings_placeholder)
-       return (pretrain_emb,len(embd[0])), emb_init
+       return (pretrain_emb,len(vocab),len(embd[0])), emb_init
     else:
         return None, None
 
@@ -282,7 +282,7 @@ def make_embed(emb_name, shape, dtype = tf.float32, pretrain_info= None,):
   if pretrain_info:
       # Insert pretrain embedding
       pretrain_emb = pretrain_info[0]
-      emb_size = pretrain_info[1]
+      emb_size = pretrain_info[2]
       if emb_size != shape[1]:
           embedding_w = tf.get_variable(
             "embedding_weights", [emb_size, shape[1]], dtype)
@@ -332,7 +332,10 @@ def create_emb_for_encoder_and_decoder(share_vocab,
     ValueError: if use share_vocab but source and target have different vocab
       size.
   """
-
+  #Verifications size of embeddings
+  print("Source vocab  sizes-> {} == {}".format(pretrain_enc_info[1],src_vocab_size))
+  if pretrain_enc_info: assert pretrain_enc_info[1] == src_vocab_size
+  if pretrain_dec_info: assert pretrain_dec_info[1] == tgt_vocab_size
   if num_partitions <= 1:
     partitioner = None
   else:

@@ -5,7 +5,7 @@ rm -rf ${model_path}/model
 mkdir  ${model_path}/model
 python -m nmt.nmt     \
   --src=cor --tgt=man     \
-  --pretrain_enc_emb_path=${model_path}/data/lenta_embed.emb \
+  --pretrain_enc_emb_path=${model_path}/model/lenta_embed.emb \
   --vocab_prefix=${model_path}/data/lenta_vocab     \
   --train_prefix=${model_path}/data/train     \
   --dev_prefix=${model_path}/data/dev_test     \
