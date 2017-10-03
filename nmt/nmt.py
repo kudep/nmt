@@ -424,7 +424,6 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path, embedd
   """Create hparams or load hparams from out_dir."""
   hparams = utils.load_hparams(out_dir)
 
-  #print(hparams); assert False #debug
   if not hparams:
     hparams = default_hparams
     hparams = utils.maybe_parse_standard_hparams(
@@ -442,8 +441,9 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path, embedd
   if flags.inference_input_file:
 
       def get_path_tail(src_path, depth = 2):
-          path_tail = "/".join(src_path.split("/")[-depth:])
-          return path_tail
+          if src_path:
+              path_tail = "/".join(src_path.split("/")[-depth:])
+              return path_tail
 
       base_dir = "/".join(out_dir.split("/")[:-1])
 
@@ -461,14 +461,23 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path, embedd
           pretrain_enc_emb_path = "./gen/encoder_embeddings.emb"
           pretrain_dec_emb_path = "./gen/decoder_embeddings.emb"
           src_vocab_file = "./gen/src.voc"
+
+          print("Attention! Speculative set hparams with embeddings generation")
           #for debug----------------------------
           tgt_vocab_file = hparams.tgt_vocab_file
           #   tgt_vocab_file = "./gen/tgt.voc"
       else:
-          if hparams.pretrain_enc_emb_path: pretrain_enc_emb_path = get_path_tail(hparams.default_pretrain_enc_emb_path)
-          if hparams.pretrain_dec_emb_path: pretrain_dec_emb_path = get_path_tail(hparams.default_pretrain_dec_emb_path)
-          src_vocab_file = get_path_tail(hparams.default_src_vocab_file)
-          tgt_vocab_file = get_path_tail(hparams.default_tgt_vocab_file)
+          print("Attention! Speculative set hparams without embeddings generation")
+          if hparams.pretrain_enc_emb_path:
+              pretrain_enc_emb_path = hparams.pretrain_enc_emb_path
+            #   pretrain_enc_emb_path = get_path_tail(hparams.default_pretrain_enc_emb_path)
+          if hparams.pretrain_dec_emb_path:
+            #    pretrain_dec_emb_path = get_path_tail(hparams.default_pretrain_dec_emb_path)
+              pretrain_dec_emb_path = hparams.pretrain_dec_emb_path
+          src_vocab_file = hparams.src_vocab_file
+          tgt_vocab_file = hparams.tgt_vocab_file
+        #   src_vocab_file = get_path_tail(hparams.default_src_vocab_file)
+        #   tgt_vocab_file = get_path_tail(hparams.default_tgt_vocab_file)
 
       hparams.src_vocab_file = os.path.join(base_dir,
                                     get_path_tail(src_vocab_file))

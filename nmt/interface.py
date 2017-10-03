@@ -121,8 +121,17 @@ class Agents():
             self.embeddings_generator.load_vocab_from_list_of_rows(context,
                                         tag_list = ["<unk>", "<s>", "</s>"])
             #for encoder
-            self.embeddings_generator.save_embeddings(self.pretrain_enc_emb_path)
-            self.embeddings_generator.save_embedded_vocab(self.src_vocab_file)
+            # embeddings, miss_vocab, emb_vocab = self.embeddings_generator.get_all_data()
+            # print("List of embeddings {} \n List of missing vocab {} \n List of embedded vocab {} \n ".format(embeddings, miss_vocab, emb_vocab))
+            # print("embeddings")
+            # for i in emb_vocab: print("--------- {} len = {} -> [{},{},{},{}, ..]".format(i,len(embeddings[i]),*(embeddings[i][:4])))
+            # print("miss_vocab")
+            # for i in miss_vocab: print("--------- {}".format(i))
+            # print("emb_vocab")
+            # for i in emb_vocab: print("--------- {}".format(i))
+            print("Attention! Not save generated embeddings.")
+            # self.embeddings_generator.save_embeddings(self.pretrain_enc_emb_path)
+            # self.embeddings_generator.save_embedded_vocab(self.src_vocab_file)
         self._write_into_file(context, self.inf_input_file)
         #Start model for generation
         self.nmt_model(*self.nmt_arg)
