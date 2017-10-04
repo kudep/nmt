@@ -486,11 +486,10 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path, embedd
 
       if hparams.pretrain_enc_emb_path:
           hparams.pretrain_enc_emb_path = os.path.join(base_dir,
-                                    get_path_tail(hparams.pretrain_enc_emb_path))
+                                    get_path_tail(pretrain_enc_emb_path))
       if hparams.pretrain_dec_emb_path:
           hparams.pretrain_dec_emb_path = os.path.join(base_dir,
-                                    get_path_tail(hparams.pretrain_dec_emb_path))
-
+                                    get_path_tail(pretrain_dec_emb_path))
 
 
   # Save HParams
@@ -538,18 +537,6 @@ def preparation_for_inference(flags, default_hparams, train_fn, inference_fn, ta
       ckpt = tf.train.latest_checkpoint(out_dir)
     return inference_fn, [ckpt, flags.inference_input_file,
                  trans_file, hparams, num_workers, jobid]
-
-
-    # # Evaluation
-    # ref_file = flags.inference_ref_file
-    # if ref_file and tf.gfile.Exists(trans_file):
-    #   for metric in hparams.metrics:
-    #     score = evaluation_utils.evaluate(
-    #         ref_file,
-    #         trans_file,
-    #         metric,
-    #         hparams.bpe_delimiter)
-    #     utils.print_out("  %s: %.1f" % (metric, score))
   else:
     return None
 

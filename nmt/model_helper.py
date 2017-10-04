@@ -79,9 +79,9 @@ def create_train_model(
     enc_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
     dec_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
     pretrain_enc_info, init_enc_emb = set_pretrain_info (hparams.pretrain_enc_emb_path,
-                                        enc_emb_placeholder, 'pretrain_enc_emb')
+        enc_emb_placeholder, 'pretrain_enc_emb')
     pretrain_dec_info, init_dec_emb = set_pretrain_info (hparams.pretrain_dec_emb_path,
-                                        dec_emb_placeholder, 'pretrain_dec_emb')
+        dec_emb_placeholder, 'pretrain_dec_emb')
 
     iterator = iterator_utils.get_iterator(
         src_dataset,
@@ -150,8 +150,10 @@ def create_eval_model(model_creator, hparams, scope=None, single_cell_fn=None):
 
     enc_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
     dec_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
-    pretrain_enc_info, init_enc_emb = set_pretrain_info (hparams.pretrain_enc_emb_path, enc_emb_placeholder, 'pretrain_enc_emb')
-    pretrain_dec_info, init_dec_emb = set_pretrain_info (hparams.pretrain_dec_emb_path, dec_emb_placeholder, 'pretrain_dec_emb')
+    pretrain_enc_info, init_enc_emb = set_pretrain_info (hparams.pretrain_enc_emb_path,
+        enc_emb_placeholder, 'pretrain_enc_emb', hparams.src_vocab_size)
+    pretrain_dec_info, init_dec_emb = set_pretrain_info (hparams.pretrain_dec_emb_path,
+        dec_emb_placeholder, 'pretrain_dec_emb', hparams.tgt_vocab_size)
     iterator = iterator_utils.get_iterator(
         src_dataset,
         tgt_dataset,
@@ -219,9 +221,9 @@ def create_infer_model(model_creator, hparams, scope=None, single_cell_fn=None):
     enc_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
     dec_emb_placeholder = tf.placeholder(shape=[None,None], dtype=tf.float32)
     pretrain_enc_info, init_enc_emb = set_pretrain_info (hparams.pretrain_enc_emb_path,
-                                        enc_emb_placeholder, 'pretrain_enc_emb')
+        enc_emb_placeholder, 'pretrain_enc_emb', hparams.src_vocab_size)
     pretrain_dec_info, init_dec_emb = set_pretrain_info (hparams.pretrain_dec_emb_path,
-                                        dec_emb_placeholder, 'pretrain_dec_emb')
+        dec_emb_placeholder, 'pretrain_dec_emb', hparams.tgt_vocab_size)
 
     iterator = iterator_utils.get_infer_iterator(
         src_dataset,
@@ -252,7 +254,8 @@ def create_infer_model(model_creator, hparams, scope=None, single_cell_fn=None):
       enc_emb_placeholder=enc_emb_placeholder,
       dec_emb_placeholder=dec_emb_placeholder)
 
-def set_pretrain_info (embeddings_path, embeddings_placeholder, name):
+def set_pretrain_info (embeddings_path, embeddings_placeholder, name, vocab_size = None):
+    print("set_pretrain_info is executing path is {}".format(embeddings_path))
     if embeddings_path:
        vocab = []
        embd = []
@@ -261,14 +264,19 @@ def set_pretrain_info (embeddings_path, embeddings_placeholder, name):
                row = line.strip().split(' ')
                vocab.append(row[0])
                embd.append(row[1:])
-       pretrain_emb = tf.Variable(tf.constant(0.0, shape=[len(vocab), len(embd[0])]),
+       # crutch
+       if vocab_size:
+           pretrain_emb = tf.Variable(tf.constant(0.0, shape=[vocab_size, len(embd[0])]),
                     trainable=False, name=name)
+       else:
+           pretrain_emb = tf.Variable(tf.constant(0.0, shape=[len(vocab), len(embd[0])]),
+                         trainable=False, name=name)
        emb_init = pretrain_emb.assign(embeddings_placeholder)
-       return (pretrain_emb,len(vocab),len(embd[0])), emb_init
+       return (pretrain_emb,len(embd[0])) , emb_init
     else:
         return None, None
 
-def load_embeddings(embeddings_path):
+def load_embeddings(embeddings_path, vocab_size = None):
   vocab = []
   embd = []
   with open(embeddings_path, 'r') as embedd_f:
@@ -276,22 +284,16 @@ def load_embeddings(embeddings_path):
           row = line.strip().split(' ')
           vocab.append(row[0])
           embd.append(row[1:])
+  #crutch
+  if vocab_size:
+      while len(embd) < vocab_size:
+           embd.append(embd[0])
   return embd
 
-def make_embed(emb_name, shape, dtype = tf.float32, pretrain_info= None,):
+def make_embed(emb_name, shape, dtype = tf.float32, pretrain_info= None):
   if pretrain_info:
       # Insert pretrain embedding
-      pretrain_emb = pretrain_info[0]
-      emb_size = pretrain_info[2]
-      if emb_size != shape[1]:
-          embedding_w = tf.get_variable(
-            "embedding_weights", [emb_size, shape[1]], dtype)
-          embedding_b = tf.get_variable(
-            "embedding_biases", [shape[1]], dtype)
-          embedding = tf.Variable(tf.matmul(pretrain_emb, embedding_w) + embedding_b,
-                name = emb_name)
-      else:
-          embedding = pretrain_emb
+      embedding = pretrain_info[0]
 
   else:
       embedding = tf.get_variable(
@@ -333,9 +335,6 @@ def create_emb_for_encoder_and_decoder(share_vocab,
       size.
   """
   #Verifications size of embeddings
-  print("Source vocab  sizes-> {} == {}".format(pretrain_enc_info[1],src_vocab_size))
-  if pretrain_enc_info: assert pretrain_enc_info[1] == src_vocab_size
-  if pretrain_dec_info: assert pretrain_dec_info[1] == tgt_vocab_size
   if num_partitions <= 1:
     partitioner = None
   else:

@@ -69,6 +69,7 @@ class Agents():
         self.embeddings_generator = None
         if embedding_generator_path:
             print("Инициализация генератора эмбеддингов, будет использован файл {}".format(embedding_generator_path))
+            # print("Attention! Not initialize embeddings model.")
             self.embeddings_generator = EmbeddingsGenerator(embedding_generator_path)
             self.embed_gen_flag = True
             self._mkprotecteddir(model_gen)
@@ -120,18 +121,9 @@ class Agents():
         if self.embed_gen_flag:
             self.embeddings_generator.load_vocab_from_list_of_rows(context,
                                         tag_list = ["<unk>", "<s>", "</s>"])
-            #for encoder
-            # embeddings, miss_vocab, emb_vocab = self.embeddings_generator.get_all_data()
-            # print("List of embeddings {} \n List of missing vocab {} \n List of embedded vocab {} \n ".format(embeddings, miss_vocab, emb_vocab))
-            # print("embeddings")
-            # for i in emb_vocab: print("--------- {} len = {} -> [{},{},{},{}, ..]".format(i,len(embeddings[i]),*(embeddings[i][:4])))
-            # print("miss_vocab")
-            # for i in miss_vocab: print("--------- {}".format(i))
-            # print("emb_vocab")
-            # for i in emb_vocab: print("--------- {}".format(i))
-            print("Attention! Not save generated embeddings.")
-            # self.embeddings_generator.save_embeddings(self.pretrain_enc_emb_path)
-            # self.embeddings_generator.save_embedded_vocab(self.src_vocab_file)
+            # print("Attention! Not save generated embeddings.")
+            self.embeddings_generator.save_embeddings(self.pretrain_enc_emb_path)
+            self.embeddings_generator.save_embedded_vocab(self.src_vocab_file)
         self._write_into_file(context, self.inf_input_file)
         #Start model for generation
         self.nmt_model(*self.nmt_arg)

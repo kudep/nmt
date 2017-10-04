@@ -7,4 +7,4 @@
 - Check work defaults params in nmt.py
 - Resolve problem with do not understated input with new encoder_embeddings
 - Test sys with good trained model
-...
+- Debug vocab size

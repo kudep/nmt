@@ -93,6 +93,17 @@ def inference(ckpt,
   if hparams.inference_indices:
     assert num_workers == 1
 
+  # def get_vocab_size(vocab_file):
+  #     with open(vocab_file) as vf:
+  #         vocab_size = sum(1 for _ in vf)
+  #     return vocab_size
+  # if hparams.pretrain_enc_emb_path:
+  #     hparams.src_vocab_size = get_vocab_size(hparams.src_vocab_file)
+  #
+  # if hparams.pretrain_dec_emb_path:
+  #     hparams.tgt_vocab_size = get_vocab_size(hparams.tgt_vocab_file)
+
+
   if not hparams.attention:
     model_creator = nmt_model.Model
   elif hparams.attention_architecture == "standard":
@@ -136,12 +147,25 @@ def single_worker_inference(infer_model,
       graph=infer_model.graph, config=utils.get_config_proto()) as sess:
     loaded_infer_model = model_helper.load_model(
         infer_model.model, ckpt, sess, "infer")
+
+
+    if hparams.pretrain_enc_emb_path:
+      sess.run(
+          infer_model.init_enc_emb,
+          feed_dict={infer_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path,hparams.src_vocab_size)})
+
+    if hparams.pretrain_dec_emb_path:
+      sess.run(
+          infer_model.init_dec_emb,
+          feed_dict={infer_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path,hparams.tgt_vocab_size)})
+
     sess.run(
         infer_model.iterator.initializer,
         feed_dict={
             infer_model.src_placeholder: infer_data,
             infer_model.batch_size_placeholder: hparams.infer_batch_size
         })
+
     # Decode
     utils.print_out("# Start decoding")
     if hparams.inference_indices:
@@ -192,8 +216,26 @@ def multi_worker_inference(infer_model,
 
   with tf.Session(
       graph=infer_model.graph, config=utils.get_config_proto()) as sess:
+
+
+
+      #This part is not debuged
+    if hparams.pretrain_enc_emb_path:
+        sess.run(
+          infer_model.init_enc_emb,
+          feed_dict={infer_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path,hparams.src_vocab_size)})
+
+    if hparams.pretrain_dec_emb_path:
+        sess.run(
+          infer_model.init_dec_emb,
+          feed_dict={infer_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path,hparams.tgt_vocab_size)})
+
+
     loaded_infer_model = model_helper.load_model(
         infer_model.model, ckpt, sess, "infer")
+
+
+
     sess.run(infer_model.iterator.initializer,
              {
                  infer_model.src_placeholder: infer_data,
