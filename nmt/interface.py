@@ -32,7 +32,7 @@ from .utils import evaluation_utils
 from .utils import misc_utils as utils
 from .utils import vocab_utils
 from .nmt import *
-from .vocab_generator import *
+from .embeddings_generator import *
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '5'
 tf.logging.set_verbosity(tf.logging.ERROR)
