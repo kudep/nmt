@@ -24,10 +24,11 @@ import sys
 # import matplotlib.image as mpimg
 import numpy as np
 import tensorflow as tf
-import embeddings_generator as embeddings_generator
+
 
 from . import inference
 from . import train
+from . import embeddings_generator as embed_gen
 from .utils import evaluation_utils
 from .utils import misc_utils as utils
 from .utils import vocab_utils
@@ -357,6 +358,35 @@ def extend_hparams(hparams):
   else:
     raise ValueError("hparams.vocab_prefix must be provided.")
 
+  embgen = None
+  if hparams.pretrain_enc_emb_path:
+      print( hparams.pretrain_enc_emb_path)
+      utils.print_out("# Check pretrain_enc_emb_path")
+      if not tf.gfile.Exists(hparams.pretrain_enc_emb_path):
+          if hparams.embedding_generator_path:
+              utils.print_out("# Initialize  Embeddings Generator %s ..." % hparams.embedding_generator_path)
+              if embgen is None: embgen = embed_gen.EmbeddingsGenerator(hparams.embedding_generator_path)
+              utils.print_out("# Generation of embeddings %s " % hparams.pretrain_enc_emb_path)
+              embgen.load_vocab_from_file(src_vocab_file, tag_list = ["<unk>", "<s>", "</s>"])
+              embgen.save_embeddings(hparams.pretrain_enc_emb_path)
+              embgen.save_embedded_vocab(src_vocab_file)
+          else:
+              raise ValueError("Embeddings for encoder %s is miss, set embeddings generator."  % hparams.pretrain_enc_emb_path)
+
+  if hparams.pretrain_dec_emb_path:
+      utils.print_out("# Check pretrain_dec_emb_path")
+      if not tf.gfile.Exists(hparams.pretrain_dec_emb_path):
+          if hparams.embedding_generator_path:
+              utils.print_out("# Initialize  Embeddings Generator %s ..." % hparams.embedding_generator_path)
+              if embgen is None: embgen = embed_gen.EmbeddingsGenerator(hparams.embedding_generator_path)
+              utils.print_out("# Generation of embeddings %s " % hparams.pretrain_dec_emb_path)
+              embgen.load_vocab_from_file(tgt_vocab_file, tag_list = ["<unk>", "<s>", "</s>"])
+              embgen.save_embeddings(hparams.pretrain_dec_emb_path)
+              embgen.save_embedded_vocab(tgt_vocab_file)
+          else:
+              raise ValueError("Embeddings for decoder %s  is miss, set embeddings generator." % hparams.pretrain_dec_emb_path)
+
+
   # Source vocab
   src_vocab_size, src_vocab_file = vocab_utils.check_vocab(
       src_vocab_file,
@@ -392,27 +422,6 @@ def extend_hparams(hparams):
     tf.gfile.MakeDirs(hparams.out_dir)
   hparams.add_hparam("default_pretrain_dec_emb_path", hparams.pretrain_dec_emb_path)
 
-  if hparams.pretrain_enc_emb_path:
-      # Check pretrain_enc_emb_path
-      if not tf.gfile.Exists(hparams.pretrain_enc_emb_path):
-          if hparams.embedding_generator_path:
-              utils.print_out("# Initialize  Embeddings Generator %s ..." % hparams.embedding_generator_path)
-              embgen = emb_gen.EmbeddingsGenerator(hparams.embedding_generator_path)
-              utils.print_out("# Generation of embeddings %s " % hparams.pretrain_enc_emb_path)
-
-          else:
-              raise ValueError("Embeddings for encoder %s is miss, set embeddings generator."  % hparams.pretrain_enc_emb_path)
-
-  if hparams.pretrain_dec_emb_path:
-      # Check pretrain_dec_emb_path
-      if not tf.gfile.Exists(hparams.pretrain_dec_emb_path):
-          if hparams.embedding_generator_path:
-              utils.print_out("# Initialize  Embeddings Generator %s ..." % hparams.embedding_generator_path)
-              embgen = emb_gen.EmbeddingsGenerator(hparams.embedding_generator_path)
-              utils.print_out("# Generation of embeddings %s " % hparams.pretrain_dec_emb_path)
-
-          else:
-              raise ValueError("Embeddings for decoder %s  is miss, set embeddings generator." % hparams.pretrain_dec_emb_path)
 
   # Evaluation
   for metric in hparams.metrics:

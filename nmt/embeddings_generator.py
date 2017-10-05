@@ -2,7 +2,7 @@ from gensim.models.wrappers import FastText
 import collections
 #todo: add merge
 
-__all__ = ["EmbeddingsGenerator"]
+__all__ = ["EmbeddingsGenerator","embeddings_generator"]
 
 class EmbeddingsGenerator():
     def __init__(self, gen_model = "model.bin"):
@@ -113,3 +113,6 @@ class EmbeddingsGenerator():
     def merge_embeddings(self, embedding1, embedding2):
         """Process merges 2 embeddings into one."""
         pass
+
+
+embeddings_generator = EmbeddingsGenerator
