@@ -255,7 +255,6 @@ def create_infer_model(model_creator, hparams, scope=None, single_cell_fn=None):
       dec_emb_placeholder=dec_emb_placeholder)
 
 def set_pretrain_info (embeddings_path, embeddings_placeholder, name, vocab_size = None):
-    print("set_pretrain_info is executing path is {}".format(embeddings_path))
     if embeddings_path:
        vocab = []
        embd = []

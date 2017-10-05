@@ -19,7 +19,7 @@ python -m nmt.nmt     \
   --num_train_steps=3000000     \
   --steps_per_stats=100     \
   --num_layers=2     \
-  --num_units=256     \
+  --num_units=512     \
   --dropout=0.2     \
   --src_max_len=250    \
   --tgt_max_len=130    \

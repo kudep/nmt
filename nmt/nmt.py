@@ -377,6 +377,10 @@ def extend_hparams(hparams):
   hparams.add_hparam("tgt_vocab_size", tgt_vocab_size)
   hparams.add_hparam("src_vocab_file", src_vocab_file)
   hparams.add_hparam("tgt_vocab_file", tgt_vocab_file)
+  hparams.add_hparam("default_src_vocab_file", hparams.src_vocab_file)
+  hparams.add_hparam("default_tgt_vocab_file", hparams.tgt_vocab_file)
+  hparams.add_hparam("default_pretrain_enc_emb_path", hparams.pretrain_enc_emb_path)
+  hparams.add_hparam("default_pretrain_dec_emb_path", hparams.pretrain_dec_emb_path)
 
   # Check out_dir
   if not tf.gfile.Exists(hparams.out_dir):
@@ -432,12 +436,6 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path, embedd
   else:
     hparams = ensure_compatible_hparams(hparams, default_hparams, hparams_path)
 
-  if flags.inference_input_file is None:
-      hparams.add_hparam("default_src_vocab_file", hparams.src_vocab_file)
-      hparams.add_hparam("default_tgt_vocab_file", hparams.tgt_vocab_file)
-      hparams.add_hparam("default_pretrain_enc_emb_path", hparams.pretrain_enc_emb_path)
-      hparams.add_hparam("default_pretrain_dec_emb_path", hparams.pretrain_dec_emb_path)
-
   if flags.inference_input_file:
 
       def get_path_tail(src_path, depth = 2):
@@ -456,28 +454,19 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path, embedd
 
       hparams.out_dir = out_dir
       hparams.best_bleu_dir = os.path.join(out_dir, "best_bleu")
+      pretrain_enc_emb_path = get_path_tail(hparams.default_pretrain_enc_emb_path)
+      pretrain_dec_emb_path = get_path_tail(hparams.default_pretrain_dec_emb_path)
+      src_vocab_file = get_path_tail(hparams.default_src_vocab_file)
+      tgt_vocab_file = get_path_tail(hparams.default_tgt_vocab_file)
 
       if embedding_generation:
-          pretrain_enc_emb_path = "./gen/encoder_embeddings.emb"
-          pretrain_dec_emb_path = "./gen/decoder_embeddings.emb"
-          src_vocab_file = "./gen/src.voc"
-
-          print("Attention! Speculative set hparams with embeddings generation")
-          #for debug----------------------------
-          tgt_vocab_file = hparams.tgt_vocab_file
-          #   tgt_vocab_file = "./gen/tgt.voc"
-      else:
-          print("Attention! Speculative set hparams without embeddings generation")
           if hparams.pretrain_enc_emb_path:
-              pretrain_enc_emb_path = hparams.pretrain_enc_emb_path
-            #   pretrain_enc_emb_path = get_path_tail(hparams.default_pretrain_enc_emb_path)
+              pretrain_enc_emb_path = "./gen/encoder_embeddings.emb"
+              src_vocab_file = "./gen/src.voc"
           if hparams.pretrain_dec_emb_path:
-            #    pretrain_dec_emb_path = get_path_tail(hparams.default_pretrain_dec_emb_path)
-              pretrain_dec_emb_path = hparams.pretrain_dec_emb_path
-          src_vocab_file = hparams.src_vocab_file
-          tgt_vocab_file = hparams.tgt_vocab_file
-        #   src_vocab_file = get_path_tail(hparams.default_src_vocab_file)
-        #   tgt_vocab_file = get_path_tail(hparams.default_tgt_vocab_file)
+              pretrain_dec_emb_path = "./gen/decoder_embeddings.emb"
+              tgt_vocab_file = "./gen/tgt.voc"
+
 
       hparams.src_vocab_file = os.path.join(base_dir,
                                     get_path_tail(src_vocab_file))
@@ -502,7 +491,7 @@ def create_or_load_hparams(flags, out_dir, default_hparams, hparams_path, embedd
   utils.print_hparams(hparams)
   return hparams
 
-def preparation_for_inference(flags, default_hparams, train_fn, inference_fn, target_session="", embedding_generation=True):
+def preparation_for_inference(flags, default_hparams, train_fn, inference_fn, target_session="", embedding_generation=False):
   """Preparation for inference."""
   utils.verbose_output = flags.verbose_output
   # Job
