@@ -124,7 +124,7 @@ class Agents():
             # print("Attention! Not save generated embeddings.")
             self.embeddings_generator.save_embeddings(self.pretrain_enc_emb_path)
             self.embeddings_generator.save_embedded_vocab(self.src_vocab_file)
-        self._write_into_file(context, self.inf_input_file)
+        # self._write_into_file(context, self.inf_input_file)
         #Start model for generation
         self.nmt_model(*self.nmt_arg)
         answer = self._read_from_file(self.inf_output_file)
@@ -167,6 +167,8 @@ class Agents():
         parser.set_defaults(inference_output_file = self.inf_output_file)
         parser.set_defaults(inference_input_file = self.inf_input_file)
         parser.set_defaults(verbose_output = False)
+        parser.set_defaults(random_seed = 3)
+        # parser.set_defaults(beam_width = 2) #best 2
 
     def _preproc(self, line):
         line = re.sub(r'[\s+]', ' ', line)

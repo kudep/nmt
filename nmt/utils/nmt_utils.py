@@ -20,9 +20,13 @@ import codecs
 import time
 
 import tensorflow as tf
+import numpy as np
+import heapq
 
 from ..utils import evaluation_utils
 from ..utils import misc_utils as utils
+
+MAGNITUDE = 1000
 
 __all__ = ["decode_and_evaluate", "get_translation"]
 
@@ -41,7 +45,36 @@ def decode_and_evaluate(name,
   # Decode
   if decode:
     utils.print_out("  decoding to output %s." % trans_file)
+    #############
+    def get_vocab(filename):
+        vocab = []
+        with open(filename) as f:
+            for line in f.readlines():
+                word = line.strip().split()[0]
+                vocab.append(word)
+        return vocab
+    def words_probability(prob, vocab):
+        confidences = []
+        words = []
+        # mean = np.mean(prob)
+        std = np.std(prob)
+        for most_n in range(1,5):
+            variants = np.array(heapq.nlargest(most_n, prob))
+            dev = np.sqrt((variants[-1] - variants[0])**2)
+            confidences.append(dev)
+            index = np.where(prob == variants[-1])[0][0]
+            words.append(vocab[index])
+        return confidences, words, std
 
+    def words_probability_for_2(words):
+        word_probs0 = []
+        word_probs1 = []
+        for word in words:
+            variant = np.array(heapq.nlargest(2, word))
+            word_probs0.append(variant[0]-MAGNITUDE)
+            word_probs1.append(variant[1])
+        return word_probs0, word_probs1
+    ###########
     start_time = time.time()
     num_sentences = 0
     with codecs.getwriter("utf-8")(
@@ -50,12 +83,17 @@ def decode_and_evaluate(name,
 
       while True:
         try:
-          nmt_outputs, _ = model.decode(sess)
+          nmt_outputs, _, sample_words = model.decode(sess)
+
+          words = np.squeeze(sample_words)
 
           if beam_width > 0:
             # get the top translation.
             nmt_outputs = nmt_outputs[0]
 
+          pr0, pr1 = words_probability_for_2(words)
+          print(pr0)
+          print(pr1)
           num_sentences += len(nmt_outputs)
           for sent_id in range(len(nmt_outputs)):
             translation = get_translation(

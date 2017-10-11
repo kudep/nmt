@@ -30,8 +30,10 @@ from .utils import misc_utils as utils
 
 utils.check_tensorflow_version()
 
-__all__ = ["BaseModel", "Model"]
+__all__ = ["BaseModel", "Model", "MAGNITUDE"]
 
+MAGNITUDE = 1000
+VAR_ABILITY = 1.1
 
 class BaseModel(object):
   """Sequence-to-sequence base class.
@@ -87,10 +89,14 @@ class BaseModel(object):
     self.batch_size = tf.size(self.iterator.source_sequence_length)
 
     # Projection
+    def modern_softmax(logits):
+        # logits = tf.nn.softmax(logits/100, dim=-1)
+        return tf.one_hot(tf.reshape(tf.multinomial(logits/VAR_ABILITY,1), [-1]),self.tgt_vocab_size)*MAGNITUDE + logits
+
     with tf.variable_scope(scope or "build_network"):
       with tf.variable_scope("decoder/output_projection"):
         self.output_layer = layers_core.Dense(
-            hparams.tgt_vocab_size, use_bias=False, name="output_projection")
+            hparams.tgt_vocab_size, use_bias=False, name="output_projection", activation=modern_softmax)
 
     # To make it flexible for external code to add other cell types
     # If not specified, we will later use model_helper._single_cell
@@ -98,6 +104,7 @@ class BaseModel(object):
 
     ## Train graph
     res = self.build_graph(hparams, scope=scope)
+    self.model_outputs = res[0]
 
     if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
       self.train_loss = res[1]
@@ -383,7 +390,7 @@ class BaseModel(object):
               cell,
               helper,
               decoder_initial_state,
-              output_layer=self.output_layer  # applied per timestep
+              output_layer=self.output_layer # applied per timestep
           )
 
         # Dynamic decoding
@@ -396,6 +403,7 @@ class BaseModel(object):
 
         if beam_width > 0:
           logits = tf.no_op()
+        #   logits = outputs
           sample_id = outputs.predicted_ids
         else:
           logits = outputs.rnn_output
@@ -460,12 +468,12 @@ class BaseModel(object):
       A tuple consiting of outputs, infer_summary.
         outputs: of size [batch_size, time]
     """
-    _, infer_summary, _, sample_words = self.infer(sess)
+    logits, infer_summary, _, sample_words = self.infer(sess)
 
     # make sure outputs is of shape [batch_size, time]
     if self.time_major:
       sample_words = sample_words.transpose()
-    return sample_words, infer_summary
+    return sample_words, infer_summary, logits
 
 
 class Model(BaseModel):

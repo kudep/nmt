@@ -19,6 +19,8 @@ from __future__ import print_function
 import codecs
 import collections
 import time
+import heapq
+import numpy as np
 
 import tensorflow as tf
 
@@ -48,7 +50,6 @@ def _decode_inference_indices(model, sess, output_infer,
     trans_f.write("")  # Write empty string to ensure file is created.
     for decode_id in inference_indices:
       nmt_outputs, infer_summary = model.decode(sess)
-
       # get text translation
       assert nmt_outputs.shape[0] == 1
       translation = nmt_utils.get_translation(
@@ -158,6 +159,83 @@ def single_worker_inference(infer_model,
       sess.run(
           infer_model.init_dec_emb,
           feed_dict={infer_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path,hparams.tgt_vocab_size)})
+
+    # sess.run(
+    #     infer_model.iterator.initializer,
+    #     feed_dict={
+    #         infer_model.src_placeholder: infer_data,
+    #         infer_model.batch_size_placeholder: hparams.infer_batch_size
+    #     })
+    # output_layer = sess.run(infer_model.model.model_outputs)
+    # print(output_layer)
+
+    # sess.run(
+    #     infer_model.iterator.initializer,
+    #     feed_dict={
+    #         infer_model.src_placeholder: infer_data,
+    #         infer_model.batch_size_placeholder: hparams.infer_batch_size
+    #     })
+    # output_layer = sess.run(infer_model.model.model_outputs)
+    # print(output_layer)
+    # print(output_layer/100)
+    # output_layer = np.squeeze(output_layer)
+    # def get_vocab(filename):
+    #     vocab = []
+    #     with open(filename) as f:
+    #         for line in f.readlines():
+    #             word = line.strip().split()[0]
+    #             vocab.append(word)
+    #     return vocab
+    # def words_probability(prob, vocab):
+    #     confidences = []
+    #     words = []
+    #     # mean = np.mean(prob)
+    #     std = np.std(prob)
+    #     for most_n in range(1,5):
+    #         variants = np.array(heapq.nlargest(most_n, prob))
+    #         dev = np.sqrt((variants[-1] - variants[0])**2)
+    #         confidences.append(dev)
+    #         index = np.where(prob == variants[-1])[0][0]
+    #         words.append(vocab[index])
+    #     return confidences, words, std
+#         print(
+# """
+# Confidences mean deviation = {0}
+# Words = {1}
+# STD = {2}
+# """.format(confidences, words, std))
+
+    # # vocab = get_vocab(hparams.tgt_vocab_file)
+    # # word_confs = []
+    # # for word in output_layer:
+    # #     confidences, _, _ = words_probability(word,vocab)
+    # #     word_confs.append(confidences[1])
+    # word_probs0 = []
+    # word_probs1 = []
+    # for word in output_layer:
+    #     variant = np.array(heapq.nlargest(2, word))
+    #     word_probs0.append(variant[0])
+    #     word_probs1.append(variant[1])
+    # word_confs
+    # first_word = np.arange(len(word_confs)//3)
+    # first_word.fill(word_confs[0])
+    # result_vect1 = np.concatenate([first_word,word_confs])
+    # indices = np.where(word_confs<(word_confs[0]*5))
+    # # result_vect2 = np.take(word_confs, indices)
+    # # result_vect3 = np.concatenate([first_word,result_vect2])
+    #
+    # mediana = np.median(word_confs)
+    # moded_mediana1 = np.median(result_vect1)
+    # # moded_mediana2 = np.median(result_vect2)
+    # # moded_mediana3 = np.median(result_vect3)
+    # # print("Confidences mean deviation = {0}".format(word_confs))
+    # print("Probability of first words = {0}".format(word_probs0))
+    # print("Probability of seconds words = {0}".format(word_probs1))
+    # print("Mediana = {0}".format(mediana))
+    # print("Moded mediana1 = {0}".format(moded_mediana1))
+    # # print("Moded mediana2 = {0}".format(moded_mediana2))
+    # # print("Moded mediana3 = {0}".format(moded_mediana3))
+
 
     sess.run(
         infer_model.iterator.initializer,
