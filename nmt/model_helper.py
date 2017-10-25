@@ -258,19 +258,20 @@ def set_pretrain_info (embeddings_path, embeddings_placeholder, name, vocab_size
     if embeddings_path:
        vocab = []
        embd = []
-       with open(embeddings_path, 'r') as embedd_f:
-           for line in embedd_f.readlines():
-               row = line.strip().split(' ')
-               vocab.append(row[0])
-               embd.append(row[1:])
-       # crutch
-       if vocab_size:
-           pretrain_emb = tf.Variable(tf.constant(0.0, shape=[vocab_size, len(embd[0])]),
-                    trainable=False, name=name)
-       else:
-           pretrain_emb = tf.Variable(tf.constant(0.0, shape=[len(vocab), len(embd[0])]),
-                         trainable=False, name=name)
-       emb_init = pretrain_emb.assign(embeddings_placeholder)
+       with tf.device('/cpu:0'):
+           with open(embeddings_path, 'r') as embedd_f:
+               for line in embedd_f.readlines():
+                   row = line.strip().split(' ')
+                   vocab.append(row[0])
+                   embd.append(row[1:])
+           # crutch
+           if vocab_size:
+               pretrain_emb = tf.Variable(tf.constant(0.0, shape=[vocab_size, len(embd[0])]),
+                        trainable=False, name=name)
+           else:
+               pretrain_emb = tf.Variable(tf.constant(0.0, shape=[len(vocab), len(embd[0])]),
+                             trainable=False, name=name)
+           emb_init = pretrain_emb.assign(embeddings_placeholder)
        return (pretrain_emb,len(embd[0])) , emb_init
     else:
         return None, None
