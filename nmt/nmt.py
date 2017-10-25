@@ -420,7 +420,6 @@ def extend_hparams(hparams):
   if not tf.gfile.Exists(hparams.out_dir):
     utils.print_out("# Creating output directory %s ..." % hparams.out_dir)
     tf.gfile.MakeDirs(hparams.out_dir)
-  hparams.add_hparam("default_pretrain_dec_emb_path", hparams.pretrain_dec_emb_path)
 
 
   # Evaluation
