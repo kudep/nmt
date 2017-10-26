@@ -25,6 +25,7 @@ import tensorflow as tf
 from tensorflow.python.layers import core as layers_core
 
 from . import model_helper
+from . import helper_functions
 from .utils import iterator_utils
 from .utils import misc_utils as utils
 
@@ -89,6 +90,7 @@ class BaseModel(object):
     # Projection
     with tf.variable_scope(scope or "build_network"):
       with tf.variable_scope("decoder/output_projection"):
+        #assert False, ('Attention output_layer')
         self.output_layer = layers_core.Dense(
             hparams.tgt_vocab_size, use_bias=False, name="output_projection")
 
@@ -317,19 +319,41 @@ class BaseModel(object):
           hparams, encoder_outputs, encoder_state,
           iterator.source_sequence_length)
 
+        if self.pretrain_dec_info:
+            # Variables for connectings layer between embeddings and encoder
+            input_embedding_w = tf.get_variable(
+              "input_embedding_projection_weights", [self.pretrain_dec_info[1], hparams.num_units], dtype)
+            input_embedding_b = tf.get_variable(
+              "input_embedding_projection_biases", [hparams.num_units], dtype)
+            # Variables for connectings layer between embeddings and encoder
+            out_embedding_w = tf.get_variable(
+              "output_embedding_projection_weights", [hparams.num_units,self.pretrain_dec_info[1]], dtype)
+            out_embedding_b = tf.get_variable(
+              "output_embedding_projection_biases", [self.pretrain_dec_info[1]], dtype)
       ## Train or eval
       if self.mode != tf.contrib.learn.ModeKeys.INFER:
         # decoder_emp_inp: [max_time, batch_size, num_units]
         target_input = iterator.target_input
         if self.time_major:
           target_input = tf.transpose(target_input)
-        decoder_emb_inp = tf.nn.embedding_lookup(
-            self.embedding_decoder, target_input)
+        if self.pretrain_dec_info:
+            self.pretrain_dec_emb = tf.nn.embedding_lookup(
+              self.embedding_decoder, target_input)
+            # Connectings layer between embeddings and decoder
+            decoder_emb_inp = tf.tensordot(self.pretrain_dec_emb, input_embedding_w, axes =[[2],[0]]) + tf.reshape(input_embedding_b, [1,1,-1])
+         else:
+            decoder_emb_inp = tf.nn.embedding_lookup(
+                self.embedding_decoder, target_input)
 
         # Helper
-        helper = tf.contrib.seq2seq.TrainingHelper(
-            decoder_emb_inp, iterator.target_sequence_length,
-            time_major=self.time_major)
+        if self.pretrain_dec_info:
+          helper = tf.contrib.seq2seq.CustomHelper(
+              decoder_emb_inp, iterator.target_sequence_length,
+              time_major=self.time_major)
+        else:
+          helper = tf.contrib.seq2seq.TrainingHelper(
+              decoder_emb_inp, iterator.target_sequence_length,
+              time_major=self.time_major)
 
         # Decoder
         my_decoder = tf.contrib.seq2seq.BasicDecoder(
@@ -353,8 +377,13 @@ class BaseModel(object):
         #   10% improvements for small models & 20% for larger ones.
         # If memory is a concern, we should apply output_layer per timestep.
         device_id = num_layers if num_layers < num_gpus else (num_layers - 1)
+
+        if self.pretrain_dec_info:
+            rnn_outputs = tf.tensordot(self.outputs.rnn_output, out_embedding_w, axes =[[2],[0]]) + tf.reshape(out_embedding_b, [1,1,-1])
+        else:
+            rnn_outputs = self.outputs.rnn_output
         with tf.device(model_helper.get_device_str(device_id, num_gpus)):
-          logits = self.output_layer(outputs.rnn_output)
+          logits = rnn_outputs #self.output_layer(rnn_outputs)
 
       ## Inference
       else:
@@ -429,16 +458,24 @@ class BaseModel(object):
     target_output = self.iterator.target_output
     if self.time_major:
       target_output = tf.transpose(target_output)
+    if self.pretrain_dec_info:
+      out_dec_emb = tf.nn.embedding_lookup(
+          self.embedding_decoder, target_output)
+
     max_time = self.get_max_time(target_output)
-    crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        labels=target_output, logits=logits)
+    if self.pretrain_dec_info:
+      loss = tf.losses.cosine_distance(
+          labels=out_dec_emb, predictions=logits)
+    else:
+      losses = tf.nn.sparse_softmax_cross_entropy_with_logits(
+          labels=target_output, logits=logits)
     target_weights = tf.sequence_mask(
         self.iterator.target_sequence_length, max_time, dtype=logits.dtype)
     if self.time_major:
       target_weights = tf.transpose(target_weights)
 
     loss = tf.reduce_sum(
-        crossent * target_weights) / tf.to_float(self.batch_size)
+        losses * target_weights) / tf.to_float(self.batch_size)
     return loss
 
   def _get_infer_summary(self, hparams):
@@ -491,17 +528,16 @@ class Model(BaseModel):
       dtype = scope.dtype
       # Look up embedding, emp_inp: [max_time, batch_size, num_units]
       if self.pretrain_enc_info:
-          self.pretrain_emb = tf.nn.embedding_lookup(
+          self.pretrain_enc_emb = tf.nn.embedding_lookup(
             self.embedding_encoder, source)
           # Variables for connectings layer between embeddings and encoder
           embedding_w = tf.get_variable(
-            "embedding_weights", [self.pretrain_enc_info[1], hparams.num_units], dtype)
+            "input_embedding_projection_weights", [self.pretrain_enc_info[1], hparams.num_units], dtype)
           embedding_b = tf.get_variable(
-            "embedding_biases", [hparams.num_units], dtype)
+            "input_embedding_projection_biases", [hparams.num_units], dtype)
           # Connectings layer between embeddings and encoder
-          encoder_emb_inp = tf.tensordot(self.pretrain_emb, embedding_w, axes =[[2],[0]]) + tf.reshape(embedding_b, [1,1,-1])
-        #   encoder_emb_inp = tf.Variable(tf.matmul(pretrain_emb, tf.expand_dims(embedding_w)) + tf.expand_dims(embedding_b),
-        #     name = "embeddings_connection")
+          encoder_emb_inp = tf.tensordot(self.pretrain_enc_emb, embedding_w, axes =[[2],[0]]) + tf.reshape(embedding_b, [1,1,-1])
+
       else:
           encoder_emb_inp = tf.nn.embedding_lookup(
             self.embedding_encoder, source)
