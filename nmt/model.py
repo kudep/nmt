@@ -315,17 +315,18 @@ class BaseModel(object):
 
     ## Decoder.
     with tf.variable_scope("decoder") as decoder_scope:
+      dtype = tf.float32
       cell, decoder_initial_state = self._build_decoder_cell(
           hparams, encoder_outputs, encoder_state,
           iterator.source_sequence_length)
 
-        if self.pretrain_dec_info:
-            # Variables for connectings layer between embeddings and encoder
+      if self.pretrain_dec_info:
+            # Variables for connectings layer between embeddings and decoder
             input_embedding_w = tf.get_variable(
               "input_embedding_projection_weights", [self.pretrain_dec_info[1], hparams.num_units], dtype)
             input_embedding_b = tf.get_variable(
               "input_embedding_projection_biases", [hparams.num_units], dtype)
-            # Variables for connectings layer between embeddings and encoder
+            # Variables for connectings layer between embeddings and decoder
             out_embedding_w = tf.get_variable(
               "output_embedding_projection_weights", [hparams.num_units,self.pretrain_dec_info[1]], dtype)
             out_embedding_b = tf.get_variable(
@@ -341,15 +342,23 @@ class BaseModel(object):
               self.embedding_decoder, target_input)
             # Connectings layer between embeddings and decoder
             decoder_emb_inp = tf.tensordot(self.pretrain_dec_emb, input_embedding_w, axes =[[2],[0]]) + tf.reshape(input_embedding_b, [1,1,-1])
-         else:
+        else:
             decoder_emb_inp = tf.nn.embedding_lookup(
                 self.embedding_decoder, target_input)
 
         # Helper
         if self.pretrain_dec_info:
-          helper = tf.contrib.seq2seq.CustomHelper(
+          helper = helper_functions.EmbedHelper(
               decoder_emb_inp, iterator.target_sequence_length,
               time_major=self.time_major)
+        #   emb_helper = helper_functions.EmbedHelper(
+        #       decoder_emb_inp, iterator.target_sequence_length,
+        #       time_major=self.time_major)
+        # #   helper.initialize = helper_functions.initialize
+        # #   helper.sample = helper_functions.sample
+        # #   helper.next_inputs = helper_functions.next_inputs
+        #   helper = tf.contrib.seq2seq.CustomHelper(
+        #      emb_helper.initialize,emb_helper.sample,emb_helper.next_inputs)
         else:
           helper = tf.contrib.seq2seq.TrainingHelper(
               decoder_emb_inp, iterator.target_sequence_length,
@@ -379,9 +388,9 @@ class BaseModel(object):
         device_id = num_layers if num_layers < num_gpus else (num_layers - 1)
 
         if self.pretrain_dec_info:
-            rnn_outputs = tf.tensordot(self.outputs.rnn_output, out_embedding_w, axes =[[2],[0]]) + tf.reshape(out_embedding_b, [1,1,-1])
+            rnn_outputs = tf.tensordot(outputs.rnn_output, out_embedding_w, axes =[[2],[0]]) + tf.reshape(out_embedding_b, [1,1,-1])
         else:
-            rnn_outputs = self.outputs.rnn_output
+            rnn_outputs = outputs.rnn_output
         with tf.device(model_helper.get_device_str(device_id, num_gpus)):
           logits = rnn_outputs #self.output_layer(rnn_outputs)
 
@@ -464,8 +473,8 @@ class BaseModel(object):
 
     max_time = self.get_max_time(target_output)
     if self.pretrain_dec_info:
-      loss = tf.losses.cosine_distance(
-          labels=out_dec_emb, predictions=logits)
+      losses = tf.abs(tf.losses.cosine_distance(
+          labels=out_dec_emb, predictions=logits, dim=-1))
     else:
       losses = tf.nn.sparse_softmax_cross_entropy_with_logits(
           labels=target_output, logits=logits)

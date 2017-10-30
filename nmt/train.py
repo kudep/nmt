@@ -305,7 +305,7 @@ def train(hparams, scope=None, target_session=""):
 
     # update statistics
     step_time += (time.time() - start_time)
-
+    print(step_result)
     checkpoint_loss += (step_loss * batch_size)
     checkpoint_predict_count += step_predict_count
     checkpoint_total_count += float(step_word_count)
@@ -326,7 +326,7 @@ def train(hparams, scope=None, target_session=""):
            avg_step_time, speed, train_ppl, _get_best_results(hparams)),
           log_f)
       if math.isnan(train_ppl):
-        break
+        pass #break
 
       # Reset timer and loss.
       step_time, checkpoint_loss, checkpoint_predict_count = 0.0, 0.0, 0.0
