@@ -317,14 +317,33 @@ class BaseModel(object):
           hparams, encoder_outputs, encoder_state,
           iterator.source_sequence_length)
 
+      if self.pretrain_dec_info:
+          dtype = tf.float32
+          # Variables for connectings layer between embeddings and decoder
+          input_embedding_w = tf.get_variable(
+            "input_embedding_weights", [self.pretrain_dec_info[1], hparams.num_units], dtype)
+          input_embedding_b = tf.get_variable(
+            "input_embedding_biases", [hparams.num_units], dtype)
+          # Variables for connectings layer between decoder and embeddings
+          output_embedding_w = tf.get_variable(
+            "output_embedding_weights", [self.pretrain_dec_info[1], hparams.num_units], dtype)
+          output_embedding_b = tf.get_variable(
+            "output_embedding_biases", [hparams.num_units], dtype)
+
       ## Train or eval
       if self.mode != tf.contrib.learn.ModeKeys.INFER:
         # decoder_emp_inp: [max_time, batch_size, num_units]
         target_input = iterator.target_input
         if self.time_major:
           target_input = tf.transpose(target_input)
-        decoder_emb_inp = tf.nn.embedding_lookup(
-            self.embedding_decoder, target_input)
+
+        if self.pretrain_dec_info:
+            pretrain_dec_emb = tf.nn.embedding_lookup(
+                self.embedding_decoder, target_input)
+            decoder_emb_inp = tf.tensordot(pretrain_dec_emb, input_embedding_w, axes =[[2],[0]]) + tf.reshape(input_embedding_b, [1,1,-1])
+        else:
+            decoder_emb_inp = tf.nn.embedding_lookup(
+                self.embedding_decoder, target_input)
 
         # Helper
         helper = tf.contrib.seq2seq.TrainingHelper(
@@ -491,15 +510,15 @@ class Model(BaseModel):
       dtype = scope.dtype
       # Look up embedding, emp_inp: [max_time, batch_size, num_units]
       if self.pretrain_enc_info:
-          self.pretrain_emb = tf.nn.embedding_lookup(
+          pretrain_enc_emb = tf.nn.embedding_lookup(
             self.embedding_encoder, source)
           # Variables for connectings layer between embeddings and encoder
-          embedding_w = tf.get_variable(
-            "embedding_weights", [self.pretrain_enc_info[1], hparams.num_units], dtype)
-          embedding_b = tf.get_variable(
-            "embedding_biases", [hparams.num_units], dtype)
+          encoder_embedding_w = tf.get_variable(
+            "encoder_embedding_weights", [self.pretrain_enc_info[1], hparams.num_units], dtype)
+          encoder_embedding_b = tf.get_variable(
+            "encoder_embedding_biases", [hparams.num_units], dtype)
           # Connectings layer between embeddings and encoder
-          encoder_emb_inp = tf.tensordot(self.pretrain_emb, embedding_w, axes =[[2],[0]]) + tf.reshape(embedding_b, [1,1,-1])
+          encoder_emb_inp = tf.tensordot(pretrain_enc_emb, encoder_embedding_w, axes =[[2],[0]]) + tf.reshape(encoder_embedding_b, [1,1,-1])
         #   encoder_emb_inp = tf.Variable(tf.matmul(pretrain_emb, tf.expand_dims(embedding_w)) + tf.expand_dims(embedding_b),
         #     name = "embeddings_connection")
       else:

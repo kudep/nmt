@@ -150,6 +150,7 @@ def run_full_eval(model_dir, infer_model, infer_sess, eval_model, eval_sess,
 
 def train(hparams, scope=None, target_session=""):
   """Train a translation model."""
+  eval_inference_enable = False
   log_device_placement = hparams.log_device_placement
   out_dir = hparams.out_dir
   num_train_steps = hparams.num_train_steps
@@ -169,14 +170,15 @@ def train(hparams, scope=None, target_session=""):
     raise ValueError("Unknown model architecture")
 
   train_model = model_helper.create_train_model(model_creator, hparams, scope)
-  eval_model = model_helper.create_eval_model(model_creator, hparams, scope)
-  infer_model = model_helper.create_infer_model(model_creator, hparams, scope)
+  if eval_inference_enable:
+      eval_model = model_helper.create_eval_model(model_creator, hparams, scope)
+      infer_model = model_helper.create_infer_model(model_creator, hparams, scope)
 
-  # Preload data for sample decoding.
-  dev_src_file = "%s.%s" % (hparams.dev_prefix, hparams.src)
-  dev_tgt_file = "%s.%s" % (hparams.dev_prefix, hparams.tgt)
-  sample_src_data = inference.load_data(dev_src_file)
-  sample_tgt_data = inference.load_data(dev_tgt_file)
+      # Preload data for sample decoding.
+      dev_src_file = "%s.%s" % (hparams.dev_prefix, hparams.src)
+      dev_tgt_file = "%s.%s" % (hparams.dev_prefix, hparams.tgt)
+      sample_src_data = inference.load_data(dev_src_file)
+      sample_tgt_data = inference.load_data(dev_tgt_file)
 
   summary_name = "train_log"
   model_dir = hparams.out_dir
@@ -194,10 +196,11 @@ def train(hparams, scope=None, target_session=""):
 
   train_sess = tf.Session(
       target=target_session, config=config_proto, graph=train_model.graph)
-  eval_sess = tf.Session(
-      target=target_session, config=config_proto, graph=eval_model.graph)
-  infer_sess = tf.Session(
-      target=target_session, config=config_proto, graph=infer_model.graph)
+  if eval_inference_enable:
+      eval_sess = tf.Session(
+        target=target_session, config=config_proto, graph=eval_model.graph)
+      infer_sess = tf.Session(
+        target=target_session, config=config_proto, graph=infer_model.graph)
 
   with train_model.graph.as_default():
     loaded_train_model, global_step = model_helper.create_or_load_model(
@@ -207,34 +210,35 @@ def train(hparams, scope=None, target_session=""):
   summary_writer = tf.summary.FileWriter(
       os.path.join(out_dir, summary_name), train_model.graph)
 
-  if hparams.pretrain_enc_emb_path:
-      eval_sess.run(
-          eval_model.init_enc_emb,
-          feed_dict={eval_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path)})
+  if eval_inference_enable:
+    if hparams.pretrain_enc_emb_path:
+        eval_sess.run(
+            eval_model.init_enc_emb,
+            feed_dict={eval_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path)})
 
-  if hparams.pretrain_dec_emb_path:
-      eval_sess.run(
-          eval_model.init_dec_emb,
-          feed_dict={eval_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path)})
-
-
-  if hparams.pretrain_enc_emb_path:
-      infer_sess.run(
-          infer_model.init_enc_emb,
-          feed_dict={infer_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path)})
-
-  if hparams.pretrain_dec_emb_path:
-      infer_sess.run(
-          infer_model.init_dec_emb,
-          feed_dict={infer_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path)})
+    if hparams.pretrain_dec_emb_path:
+        eval_sess.run(
+            eval_model.init_dec_emb,
+            feed_dict={eval_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path)})
 
 
-  # First evaluation
-  run_full_eval(
-      model_dir, infer_model, infer_sess,
-      eval_model, eval_sess, hparams,
-      summary_writer, sample_src_data,
-      sample_tgt_data)
+    if hparams.pretrain_enc_emb_path:
+        infer_sess.run(
+            infer_model.init_enc_emb,
+            feed_dict={infer_model.enc_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_enc_emb_path)})
+
+    if hparams.pretrain_dec_emb_path:
+        infer_sess.run(
+            infer_model.init_dec_emb,
+            feed_dict={infer_model.dec_emb_placeholder: model_helper.load_embeddings(hparams.pretrain_dec_emb_path)})
+
+
+    # First evaluation
+    run_full_eval(
+        model_dir, infer_model, infer_sess,
+        eval_model, eval_sess, hparams,
+        summary_writer, sample_src_data,
+        sample_tgt_data)
 
   last_stats_step = global_step
   last_eval_step = global_step
@@ -284,12 +288,13 @@ def train(hparams, scope=None, target_session=""):
       utils.print_out(
           "# Finished an epoch, step %d. Perform external evaluation" %
           global_step)
-      run_sample_decode(infer_model, infer_sess,
-                        model_dir, hparams, summary_writer, sample_src_data,
-                        sample_tgt_data)
-      dev_scores, test_scores, _ = run_external_eval(
-          infer_model, infer_sess, model_dir,
-          hparams, summary_writer)
+      if eval_inference_enable:
+        run_sample_decode(infer_model, infer_sess,
+                          model_dir, hparams, summary_writer, sample_src_data,
+                          sample_tgt_data)
+        dev_scores, test_scores, _ = run_external_eval(
+            infer_model, infer_sess, model_dir,
+            hparams, summary_writer)
       train_sess.run(
           train_model.iterator.initializer,
           feed_dict={train_model.skip_count_placeholder: 0})
@@ -339,12 +344,13 @@ def train(hparams, scope=None, target_session=""):
           os.path.join(out_dir, "translate.ckpt"),
           global_step=global_step)
 
-      # Evaluate on dev/test
-      run_sample_decode(infer_model, infer_sess,
-                        model_dir, hparams, summary_writer, sample_src_data,
-                        sample_tgt_data)
-      dev_ppl, test_ppl = run_internal_eval(
-          eval_model, eval_sess, model_dir, hparams, summary_writer)
+      if eval_inference_enable:
+        # Evaluate on dev/test
+        run_sample_decode(infer_model, infer_sess,
+                          model_dir, hparams, summary_writer, sample_src_data,
+                          sample_tgt_data)
+        dev_ppl, test_ppl = run_internal_eval(
+            eval_model, eval_sess, model_dir, hparams, summary_writer)
 
     if global_step - last_external_eval_step >= steps_per_external_eval:
       last_external_eval_step = global_step
@@ -354,19 +360,23 @@ def train(hparams, scope=None, target_session=""):
           train_sess,
           os.path.join(out_dir, "translate.ckpt"),
           global_step=global_step)
-      run_sample_decode(infer_model, infer_sess,
-                        model_dir, hparams, summary_writer, sample_src_data,
-                        sample_tgt_data)
-      dev_scores, test_scores, _ = run_external_eval(
-          infer_model, infer_sess, model_dir,
-          hparams, summary_writer)
+      if eval_inference_enable:
+        run_sample_decode(infer_model, infer_sess,
+                          model_dir, hparams, summary_writer, sample_src_data,
+                          sample_tgt_data)
+        dev_scores, test_scores, _ = run_external_eval(
+            infer_model, infer_sess, model_dir,
+            hparams, summary_writer)
 
   # Done training
   loaded_train_model.saver.save(
       train_sess,
       os.path.join(out_dir, "translate.ckpt"),
       global_step=global_step)
-
+  if not eval_inference_enable:
+    utils.print_out("# End training.")
+    summary_writer.close()
+    return (None, None, None, None, None)
   result_summary, _, dev_scores, test_scores, dev_ppl, test_ppl = run_full_eval(
       model_dir, infer_model, infer_sess,
       eval_model, eval_sess, hparams,
