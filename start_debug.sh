@@ -11,6 +11,7 @@ python -m nmt.nmt     \
   --src=cor --tgt=man     \
   --embedding_generator_path=${generator_path} \
   --pretrain_enc_emb_path=${model_path}/data/enc_embeddings.emb \
+  --pretrain_dec_emb_path=${model_path}/data/enc_embeddings.emb \
   --vocab_prefix=${model_path}/data/vocab     \
   --train_prefix=${model_path}/data/train     \
   --dev_prefix=${model_path}/data/dev_test     \
@@ -18,7 +19,7 @@ python -m nmt.nmt     \
   --out_dir=${model_path}/model     \
   --encoder_type bi \
   --batch_size 20     \
-  --num_train_steps=3000000     \
+  --num_train_steps=3000000    \
   --steps_per_stats=10     \
   --num_layers=2     \
   --num_units=256     \

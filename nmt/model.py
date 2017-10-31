@@ -23,6 +23,7 @@ import abc
 import tensorflow as tf
 
 from tensorflow.python.layers import core as layers_core
+from . import decoder_output as embeddings_layers
 
 from . import model_helper
 from .utils import iterator_utils
@@ -86,11 +87,21 @@ class BaseModel(object):
     self.init_embeddings(hparams, scope)
     self.batch_size = tf.size(self.iterator.source_sequence_length)
 
-    # Projection
-    with tf.variable_scope(scope or "build_network"):
-      with tf.variable_scope("decoder/output_projection"):
-        self.output_layer = layers_core.Dense(
-            hparams.tgt_vocab_size, use_bias=False, name="output_projection")
+    if self.pretrain_dec_info:
+      # Projection
+      with tf.variable_scope(scope or "build_network"):
+        with tf.variable_scope("decoder/output_projection"):
+          self.output_layer = embeddings_layers.OutputDecoder(
+              units =self.pretrain_dec_info[1], use_bias=False,
+              name="output_projection",
+              decoder_embeddings=self.embedding_decoder,
+              embeddings_units=hparams.tgt_vocab_size)
+    else:
+      # Projection
+      with tf.variable_scope(scope or "build_network"):
+        with tf.variable_scope("decoder/output_projection"):
+          self.output_layer = layers_core.Dense(
+              hparams.tgt_vocab_size, use_bias=False, name="output_projection")
 
     # To make it flexible for external code to add other cell types
     # If not specified, we will later use model_helper._single_cell
@@ -322,13 +333,13 @@ class BaseModel(object):
           # Variables for connectings layer between embeddings and decoder
           input_embedding_w = tf.get_variable(
             "input_embedding_weights", [self.pretrain_dec_info[1], hparams.num_units], dtype)
-          input_embedding_b = tf.get_variable(
-            "input_embedding_biases", [hparams.num_units], dtype)
+        #   input_embedding_b = tf.get_variable(
+        #     "input_embedding_biases", [hparams.num_units], dtype)
           # Variables for connectings layer between decoder and embeddings
-          output_embedding_w = tf.get_variable(
-            "output_embedding_weights", [self.pretrain_dec_info[1], hparams.num_units], dtype)
-          output_embedding_b = tf.get_variable(
-            "output_embedding_biases", [hparams.num_units], dtype)
+        #   output_embedding_w = tf.get_variable(
+        #     "output_embedding_weights", [hparams.num_units, self.pretrain_dec_info[1]], dtype)
+        #   output_embedding_b = tf.get_variable(
+        #     "output_embedding_biases", [self.pretrain_dec_info[1]], dtype)
 
       ## Train or eval
       if self.mode != tf.contrib.learn.ModeKeys.INFER:
@@ -340,7 +351,7 @@ class BaseModel(object):
         if self.pretrain_dec_info:
             pretrain_dec_emb = tf.nn.embedding_lookup(
                 self.embedding_decoder, target_input)
-            decoder_emb_inp = tf.tensordot(pretrain_dec_emb, input_embedding_w, axes =[[2],[0]]) + tf.reshape(input_embedding_b, [1,1,-1])
+            decoder_emb_inp = tf.tensordot(pretrain_dec_emb, input_embedding_w, axes =[[2],[0]])# + tf.reshape(input_embedding_b, [1,1,-1])
         else:
             decoder_emb_inp = tf.nn.embedding_lookup(
                 self.embedding_decoder, target_input)
@@ -365,6 +376,14 @@ class BaseModel(object):
 
         sample_id = outputs.sample_id
 
+
+        # if self.pretrain_dec_info:
+        #   with tf.device(model_helper.get_device_str(num_layers - 1, num_gpus)):
+        #     fasttext_projection = tf.tensordot(outputs.rnn_output,
+        #         output_embedding_w, axes =[[-1],[0]])# + tf.reshape(output_embedding_b, [1,1,-1])
+        #     output_embeddins = tf.transpose(self.embedding_decoder)
+        #     logits = tf.tensordot(fasttext_projection, output_embeddins, axes =[[-1],[0]])
+        # else:
         # Note: there's a subtle difference here between train and inference.
         # We could have set output_layer when create my_decoder
         #   and shared more code between train and inference.
@@ -373,8 +392,7 @@ class BaseModel(object):
         # If memory is a concern, we should apply output_layer per timestep.
         device_id = num_layers if num_layers < num_gpus else (num_layers - 1)
         with tf.device(model_helper.get_device_str(device_id, num_gpus)):
-          logits = self.output_layer(outputs.rnn_output)
-
+            logits = self.output_layer(outputs.rnn_output)
       ## Inference
       else:
         beam_width = hparams.beam_width
@@ -515,10 +533,10 @@ class Model(BaseModel):
           # Variables for connectings layer between embeddings and encoder
           encoder_embedding_w = tf.get_variable(
             "encoder_embedding_weights", [self.pretrain_enc_info[1], hparams.num_units], dtype)
-          encoder_embedding_b = tf.get_variable(
-            "encoder_embedding_biases", [hparams.num_units], dtype)
+        #   encoder_embedding_b = tf.get_variable(
+        #     "encoder_embedding_biases", [hparams.num_units], dtype)
           # Connectings layer between embeddings and encoder
-          encoder_emb_inp = tf.tensordot(pretrain_enc_emb, encoder_embedding_w, axes =[[2],[0]]) + tf.reshape(encoder_embedding_b, [1,1,-1])
+          encoder_emb_inp = tf.tensordot(pretrain_enc_emb, encoder_embedding_w, axes =[[2],[0]])# + tf.reshape(encoder_embedding_b, [1,1,-1])
         #   encoder_emb_inp = tf.Variable(tf.matmul(pretrain_emb, tf.expand_dims(embedding_w)) + tf.expand_dims(embedding_b),
         #     name = "embeddings_connection")
       else:

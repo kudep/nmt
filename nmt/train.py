@@ -150,7 +150,7 @@ def run_full_eval(model_dir, infer_model, infer_sess, eval_model, eval_sess,
 
 def train(hparams, scope=None, target_session=""):
   """Train a translation model."""
-  eval_inference_enable = False
+  eval_inference_enable = True
   log_device_placement = hparams.log_device_placement
   out_dir = hparams.out_dir
   num_train_steps = hparams.num_train_steps
