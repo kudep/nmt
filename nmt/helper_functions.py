@@ -93,11 +93,14 @@ class EmbedHelper(tf.contrib.seq2seq.TrainingHelper):
   #       return (finished, next_inputs, state)
 
 class ExtendGreedyEmbeddingHelper(tf.contrib.seq2seq.GreedyEmbeddingHelper):
-  def __init__(self, embedding, start_tokens, end_token, out_embedding_w, out_embedding_b):
+  def __init__(self, embedding, start_tokens, end_token, input_embedding_w, input_embedding_b, out_embedding_w, out_embedding_b):
       super(ExtendGreedyEmbeddingHelper, self).__init__(embedding, start_tokens, end_token)
       self.embedding = embedding
+      self.input_embedding_w = input_embedding_w
+      self.input_embedding_b = input_embedding_b
       self.out_embedding_w = out_embedding_w
       self.out_embedding_b = out_embedding_b
+
 
   def sample(self, time, outputs, state, name=None):
     """sample for GreedyEmbeddingHelper."""
@@ -117,3 +120,16 @@ class ExtendGreedyEmbeddingHelper(tf.contrib.seq2seq.GreedyEmbeddingHelper):
     sample_ids = math_ops.cast(
         tf.argmin(euclid_dist,-1), dtypes.int32)
     return sample_ids
+
+  def next_inputs(self, time, outputs, state, sample_ids, name=None):
+    """next_inputs_fn for GreedyEmbeddingHelper."""
+    del time, outputs  # unused by next_inputs_fn
+    finished = math_ops.equal(sample_ids, self._end_token)
+    all_finished = math_ops.reduce_all(finished)
+    temp_next_inputs = control_flow_ops.cond(
+        all_finished,
+        # If we're finished, the next_inputs value doesn't matter
+        lambda: self._start_inputs,
+        lambda: self._embedding_fn(sample_ids))
+    next_inputs = tf.tensordot(temp_next_inputs, self.input_embedding_w, axes =[[-1],[0]]) + tf.reshape(self.input_embedding_b, [1,1,-1])
+    return (finished, next_inputs, state)

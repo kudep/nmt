@@ -150,7 +150,7 @@ def run_full_eval(model_dir, infer_model, infer_sess, eval_model, eval_sess,
 
 def train(hparams, scope=None, target_session=""):
   """Train a translation model."""
-  debug_flag = True
+  debug_flag = False#True# False#True
   log_device_placement = hparams.log_device_placement
   out_dir = hparams.out_dir
   num_train_steps = hparams.num_train_steps
@@ -299,13 +299,11 @@ def train(hparams, scope=None, target_session=""):
           train_model.iterator.initializer,
           feed_dict={train_model.skip_count_placeholder: 0})
       continue
-
     # Write step summary.
     summary_writer.add_summary(step_summary, global_step)
 
     # update statistics
     step_time += (time.time() - start_time)
-    print(step_result)
     checkpoint_loss += (step_loss * batch_size)
     checkpoint_predict_count += step_predict_count
     checkpoint_total_count += float(step_word_count)
@@ -326,7 +324,7 @@ def train(hparams, scope=None, target_session=""):
            avg_step_time, speed, train_ppl, _get_best_results(hparams)),
           log_f)
       if math.isnan(train_ppl):
-        pass #break
+        break
 
       # Reset timer and loss.
       step_time, checkpoint_loss, checkpoint_predict_count = 0.0, 0.0, 0.0

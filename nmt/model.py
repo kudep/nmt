@@ -87,12 +87,12 @@ class BaseModel(object):
     self.init_embeddings(hparams, scope)
     self.batch_size = tf.size(self.iterator.source_sequence_length)
 
-    # Projection
-    with tf.variable_scope(scope or "build_network"):
-      with tf.variable_scope("decoder/output_projection"):
-        #assert False, ('Attention output_layer')
-        self.output_layer = layers_core.Dense(
-            hparams.tgt_vocab_size, use_bias=False, name="output_projection")
+    # # Projection
+    # with tf.variable_scope(scope or "build_network"):
+    #   with tf.variable_scope("decoder/output_projection"):
+    #     #assert False, ('Attention output_layer')
+    #     self.output_layer = layers_core.Dense(
+    #         hparams.tgt_vocab_size, use_bias=False, name="output_projection")
 
     # To make it flexible for external code to add other cell types
     # If not specified, we will later use model_helper._single_cell
@@ -413,8 +413,16 @@ class BaseModel(object):
               length_penalty_weight=length_penalty_weight)
         else:
           # Helper
-          helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-              self.embedding_decoder, start_tokens, end_token)
+          self.output_layer = None##----------------------------------------
+          if self.pretrain_dec_info:
+              helper = helper_functions.ExtendGreedyEmbeddingHelper(
+                self.embedding_decoder, start_tokens, end_token,
+                input_embedding_w, input_embedding_b,
+                out_embedding_w, out_embedding_b)
+              self.output_layer = None
+          else:
+              helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+                self.embedding_decoder, start_tokens, end_token)
 
           # Decoder
           my_decoder = tf.contrib.seq2seq.BasicDecoder(
@@ -470,11 +478,15 @@ class BaseModel(object):
     if self.pretrain_dec_info:
       out_dec_emb = tf.nn.embedding_lookup(
           self.embedding_decoder, target_output)
-
     max_time = self.get_max_time(target_output)
     if self.pretrain_dec_info:
-      losses = tf.abs(tf.losses.cosine_distance(
-          labels=out_dec_emb, predictions=logits, dim=-1))
+      losses = tf.abs(tf.losses.absolute_difference(
+          labels=out_dec_emb, predictions=logits))
+    #   print('pretrain_dec_info -------------------------------------{} '.format(self.pretrain_dec_info))
+    #   print('out_dec_emb -------------------------------------{} '.format(out_dec_emb))
+    #   print('logits -------------------------------------{} '.format(logits))
+    #   losses = tf.abs(tf.losses.cosine_distance(
+                # labels=out_dec_emb, predictions=logits, dim=-1))
     else:
       losses = tf.nn.sparse_softmax_cross_entropy_with_logits(
           labels=target_output, logits=logits)
@@ -536,7 +548,7 @@ class Model(BaseModel):
     with tf.variable_scope("encoder") as scope:
       dtype = scope.dtype
       # Look up embedding, emp_inp: [max_time, batch_size, num_units]
-      if self.pretrain_enc_info:
+      if True:#self.pretrain_enc_info:
           self.pretrain_enc_emb = tf.nn.embedding_lookup(
             self.embedding_encoder, source)
           # Variables for connectings layer between embeddings and encoder

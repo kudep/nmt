@@ -377,7 +377,6 @@ def _single_cell(unit_type, num_units, forget_bias, dropout,
   """Create an instance of a single RNN cell."""
   # dropout (= 1 - keep_prob) is set to 0 during eval and infer
   dropout = dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
-
   # Cell Type
   if unit_type == "lstm":
     utils.print_out("  LSTM, forget_bias=%g" % forget_bias, new_line=False)

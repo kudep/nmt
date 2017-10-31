@@ -2,7 +2,7 @@
 
 export model_path="/home/kuznetsov/tmp/thread9"
 export generator_path="/home/kuznetsov/embeddings/fasttext/models/model-l+w+2t-1/lenta+wiki+ted+tedx-1.bin"
-rm -rf ${model_path}/model
+# rm -rf ${model_path}/model
 mkdir  ${model_path}/model
 
 
@@ -10,6 +10,7 @@ python -m nmt.nmt     \
   --src=cor --tgt=man     \
   --embedding_generator_path=${generator_path} \
   --pretrain_enc_emb_path=${model_path}/data/enc_embeddings.emb \
+  --pretrain_dec_emb_path=${model_path}/data/enc_embeddings.emb \
   --vocab_prefix=${model_path}/data/vocab     \
   --train_prefix=${model_path}/data/train     \
   --dev_prefix=${model_path}/data/dev_test     \
