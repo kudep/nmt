@@ -1,11 +1,10 @@
 #! /bin/bash
 
-export model_path="/home/kuznetsov/tmp/thread9"
+export model_path="/home/kuznetsov/tmp/thread16"
 export generator_path="/home/kuznetsov/embeddings/fasttext/models/model-l+w+2t-1/lenta+wiki+ted+tedx-1.bin"
-# rm -rf ${model_path}/model
-# mkdir  ${model_path}/model
+rm -rf ${model_path}/model
+mkdir  ${model_path}/model
 #--pretrain_dec_emb_path=${model_path}/data/enc_embeddings.emb \
-# --decay_steps 10 \
 
 
 python -m nmt.nmt     \

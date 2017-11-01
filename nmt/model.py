@@ -399,7 +399,10 @@ class BaseModel(object):
         length_penalty_weight = hparams.length_penalty_weight
         start_tokens = tf.fill([self.batch_size], tgt_sos_id)
         end_token = tgt_eos_id
-        input_embedding_decoder = tf.matmul(self.embedding_decoder,input_embedding_w)
+        if self.pretrain_dec_info:
+            input_embedding_decoder = tf.matmul(self.embedding_decoder,input_embedding_w)
+        else:
+            input_embedding_decoder = self.embedding_decoder
 
         if beam_width > 0:
           my_decoder = tf.contrib.seq2seq.BeamSearchDecoder(
