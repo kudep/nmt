@@ -76,6 +76,11 @@ class BaseModel(object):
     self.num_layers = hparams.num_layers
     self.num_gpus = hparams.num_gpus
     self.time_major = hparams.time_major
+    if hparams.share_vocab:
+        if pretrain_enc_info:
+            self.pretrain_dec_info=pretrain_enc_info
+        else:
+            self.pretrain_enc_info=pretrain_dec_info
 
     # Initializer
     initializer = model_helper.get_initializer(
@@ -87,22 +92,27 @@ class BaseModel(object):
     self.init_embeddings(hparams, scope)
     self.batch_size = tf.size(self.iterator.source_sequence_length)
 
-    if self.pretrain_dec_info:
-      # Projection
-      with tf.variable_scope(scope or "build_network"):
-        with tf.variable_scope("decoder/output_projection"):
-        #   with tf.device('/cpu:0'):
-            self.output_layer = embeddings_layers.OutputDecoder(
-                units =self.pretrain_dec_info[1], use_bias=False,
-                name="output_projection",
-                decoder_embeddings=self.embedding_decoder,
-                embeddings_units=hparams.tgt_vocab_size)
-    else:
-      # Projection
-      with tf.variable_scope(scope or "build_network"):
-        with tf.variable_scope("decoder/output_projection"):
-          self.output_layer = layers_core.Dense(
-              hparams.tgt_vocab_size, use_bias=False, name="output_projection")
+    # if self.pretrain_dec_info:
+    #   # Projection
+    #   with tf.variable_scope(scope or "build_network"):
+    #     with tf.variable_scope("decoder/output_projection"):
+    #     #   with tf.device('/cpu:0'):
+    #         self.output_layer = embeddings_layers.OutputDecoder(
+    #             units =self.pretrain_dec_info[1], use_bias=False,
+    #             name="output_projection",
+    #             decoder_embeddings=self.embedding_decoder,
+    #             embeddings_units=hparams.tgt_vocab_size)
+    # else:
+    #   # Projection
+    #   with tf.variable_scope(scope or "build_network"):
+    #     with tf.variable_scope("decoder/output_projection"):
+    #       self.output_layer = layers_core.Dense(
+    #           hparams.tgt_vocab_size, use_bias=False, name="output_projection")
+    # Projection
+    with tf.variable_scope(scope or "build_network"):
+      with tf.variable_scope("decoder/output_projection"):
+        self.output_layer = layers_core.Dense(
+            hparams.tgt_vocab_size, use_bias=False, name="output_projection")
 
     # To make it flexible for external code to add other cell types
     # If not specified, we will later use model_helper._single_cell
