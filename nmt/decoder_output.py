@@ -37,6 +37,7 @@ from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.layers import base
 from tensorflow.python.layers import core
 from tensorflow.python.layers import utils
+import tensorflow as tf
 
 
 class OutputDecoder(core.Dense):
@@ -140,9 +141,13 @@ class OutputDecoder(core.Dense):
       # Broadcasting is required for the inputs.
       projection = standard_ops.tensordot(inputs, self.kernel, [[len(shape) - 1],
                                                              [0]])
+    #   with tf.device('/cpu:0'):
+    #     output_embeddins = standard_ops.transpose(self.decoder_embeddings)
+    #     outputs = standard_ops.tensordot(projection, output_embeddins, [[len(shape) - 1],
+    #                                                            [0]])
       output_embeddins = standard_ops.transpose(self.decoder_embeddings)
       outputs = standard_ops.tensordot(projection, output_embeddins, [[len(shape) - 1],
-                                                             [0]])
+                                                               [0]])
       # Reshape the output back to the original ndim of the input.
       outputs.set_shape(output_shape)
     else:

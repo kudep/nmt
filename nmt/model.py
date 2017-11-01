@@ -91,11 +91,12 @@ class BaseModel(object):
       # Projection
       with tf.variable_scope(scope or "build_network"):
         with tf.variable_scope("decoder/output_projection"):
-          self.output_layer = embeddings_layers.OutputDecoder(
-              units =self.pretrain_dec_info[1], use_bias=False,
-              name="output_projection",
-              decoder_embeddings=self.embedding_decoder,
-              embeddings_units=hparams.tgt_vocab_size)
+        #   with tf.device('/cpu:0'):
+            self.output_layer = embeddings_layers.OutputDecoder(
+                units =self.pretrain_dec_info[1], use_bias=False,
+                name="output_projection",
+                decoder_embeddings=self.embedding_decoder,
+                embeddings_units=hparams.tgt_vocab_size)
     else:
       # Projection
       with tf.variable_scope(scope or "build_network"):
@@ -349,8 +350,9 @@ class BaseModel(object):
           target_input = tf.transpose(target_input)
 
         if self.pretrain_dec_info:
+            # with tf.device('/cpu:0'):
             pretrain_dec_emb = tf.nn.embedding_lookup(
-                self.embedding_decoder, target_input)
+                    self.embedding_decoder, target_input)
             decoder_emb_inp = tf.tensordot(pretrain_dec_emb, input_embedding_w, axes =[[2],[0]])# + tf.reshape(input_embedding_b, [1,1,-1])
         else:
             decoder_emb_inp = tf.nn.embedding_lookup(
@@ -532,8 +534,9 @@ class Model(BaseModel):
       dtype = scope.dtype
       # Look up embedding, emp_inp: [max_time, batch_size, num_units]
       if self.pretrain_enc_info:
+        #   with tf.device('/cpu:0'):
           pretrain_enc_emb = tf.nn.embedding_lookup(
-            self.embedding_encoder, source)
+                self.embedding_encoder, source)
           # Variables for connectings layer between embeddings and encoder
           encoder_embedding_w = tf.get_variable(
             "encoder_embedding_weights", [self.pretrain_enc_info[1], hparams.num_units], dtype)
