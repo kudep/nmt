@@ -1,6 +1,6 @@
 #! /bin/bash
 
-export model_path="/home/kuznetsov/tmp/thread17"
+export model_path="/home/kuznetsov/tmp/thread18"
 export generator_path="/home/kuznetsov/embeddings/fasttext/models/model-l+w+2t-1/lenta+wiki+ted+tedx-1.bin"
 rm -rf ${model_path}/model
 mkdir  ${model_path}/model
@@ -14,6 +14,7 @@ python -m nmt.nmt     \
   --src=cor --tgt=man     \
   --embedding_generator_path=${generator_path} \
   --pretrain_enc_emb_path=${model_path}/data/enc_embeddings.emb \
+  --share_vocab True \
   --vocab_prefix=${model_path}/data/vocab     \
   --train_prefix=${model_path}/data/train     \
   --dev_prefix=${model_path}/data/dev_test     \
@@ -24,8 +25,9 @@ python -m nmt.nmt     \
   --num_train_steps=3000000     \
   --steps_per_stats=100     \
   --num_layers=2     \
-  --num_units=1024     \
+  --num_units=768     \
   --dropout=0.2     \
   --src_max_len=140    \
   --tgt_max_len=140  \
+  --attention=luong     \
   --metrics=bleu
