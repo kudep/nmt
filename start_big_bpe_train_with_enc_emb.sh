@@ -1,5 +1,5 @@
 #! /bin/bash
-#git commit
+#git commit 7ea94b6
 export model_path="/home/kuznetsov/tmp/thread23"
 export generator_path="/home/kuznetsov/embeddings/fasttext/models/model-l+w+2t-1/lenta+wiki+ted+tedx-1.bin"
 rm -rf ${model_path}/model
