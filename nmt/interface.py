@@ -28,6 +28,7 @@ import tensorflow as tf
 
 from . import inference
 from . import train
+from . import apply_bpe
 from .utils import evaluation_utils
 from .utils import misc_utils as utils
 from .utils import vocab_utils
@@ -51,7 +52,7 @@ class AgentMemory():
         return self.cor_context, self.man_context, self.context, self.context_file
 
 class Agents():
-    def __init__(self, model_dir, ckpt_name = None, best_bleu = False, context_len=5, man_context_len=1, verbose_output = False, embedding_generator_path=None):
+    def __init__(self, model_dir, ckpt_name = None, best_bleu = False, context_len=5, man_context_len=1, verbose_output = False, embedding_generator_path=None, bpe_enc=None, bpe_dec=None):
         #Files
         assert not model_dir is None
         buf_path = "/tmp/nmt_chit-chat/buffers/"
@@ -60,6 +61,8 @@ class Agents():
         self.base_context_file = os.path.join(buf_path, 'context')
 
         model_gen = os.path.join(model_dir,'gen')
+        bpe_codes_file_path = os.path.join(model_dir,'data/codes.txt')
+        bpe_voc_file_path = os.path.join(model_dir,'data/bpeshare.voc')
         model_dir = os.path.join(model_dir,'model')
         self._mkprotecteddir(buf_path)
         nmt_parser = argparse.ArgumentParser()
@@ -84,7 +87,22 @@ class Agents():
         flags, unparsed = nmt_parser.parse_known_args()
 
         # Insert in class
-        flags = flags
+        flags = flags # Unthinking
+        if bpe_enc or bpe_dec:
+            self.bpe_enc = bpe_enc
+            self.bpe_dec = bpe_dec
+        else:
+            self.bpe_enc = False
+            self.bpe_dec = False
+
+        if flags.bpe_delimiter:
+            self.bpe_enc = True
+            self.bpe_dec = True
+
+        if bpe_enc or bpe_dec:
+            #Separator for bpe
+            self.separator='@@'
+            self.apply_bpe = apply_bpe.apply_bpe(bpe_codes_file_path, bpe_voc_file_path, separator=self.separator)
         default_hparams = create_hparams(flags)
         train_fn =  train.train
         inference_fn = inference.inference
@@ -112,10 +130,12 @@ class Agents():
     def send(self, msg = '', agent_id = 0):
         #Update context
         self.deploy_agent(agent_id = agent_id, reset = False) # Create agent if agent not exist
-        man_start_tag = " <MAN_START> "
-        cor_start_tag = " <COR_START> "
+        # man_start_tag = " <MAN_START> "
+        # cor_start_tag = " <COR_START> "
+        man_start_tag = " "
+        cor_start_tag = " "
         line = re.sub(' +', ' ', cor_start_tag + self._preproc(msg))
-        self._change_agent_context(line, agent_id, "COR")
+        self._change_agent_context(line, agent_id, "human")
         _, _, context, _ = self.agents_memory[agent_id].get_memory()
         #Update work files
         if self.embed_gen_flag:
@@ -130,9 +150,13 @@ class Agents():
         answer = self._read_from_file(self.inf_output_file)
         #Save answer
         line = re.sub(' +', ' ', man_start_tag + self._preproc(answer))
-        self._change_agent_context(line, agent_id, "MAN")
+        self._change_agent_context(line, agent_id, "model")
         _, _, context, context_file = self.agents_memory[agent_id].get_memory()
         self._context_into_buf(context, context_file)
+
+        if self.bpe_dec:
+            pattern = '({} )'.format(self.separator)
+            answer = re.sub(pattern, '', answer)
         return answer
 
     def get_content(self, agent_id = 0):
@@ -174,15 +198,17 @@ class Agents():
         line = re.sub(r"([\w/'+$\s-]+|[^\w/'+$\s-]+)\s*", r"\1 ", line)
         line = re.sub(r"([\*\"\'\\\/\|\{\}\[\]\;\:\<\>\,\.\?\*\(\)])", r" \1 ", line)
         line = re.sub(' +', ' ', line)
+        if self.bpe_enc:
+            line = self.apply_bpe(line)
         return line
     def _change_agent_context(self, line, agent_id = 0, speaker=None):
         cor_context, man_context, context, _ = self.agents_memory[agent_id].get_memory()
         context_len, man_context_len = self.context_len, self.man_context_len
         context = []
-        if speaker=="MAN":
+        if speaker=="model":
             man_context.insert(0,line)
         else:
-            assert speaker=="COR"
+            assert speaker=="human"
             cor_context.insert(0,line)
         assert context_len >= man_context_len
         man_iter = min(len(man_context), man_context_len)

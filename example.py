@@ -4,9 +4,18 @@ import os
 
 model_path = os.environ.get("CHITCHAT_MODEL")
 ckpt_name = os.environ.get("CHITCHAT_CKPT") #Optional, it can be not defined
-embeddings_model = os.environ.get("CHITCHAT_UMBED_MODEL") #Optional, it can be not defined
+embeddings_model = os.environ.get("CHITCHAT_EMBED_MODEL") #Optional, it can be not defined
 
-agents = Agents(model_path, ckpt_name = ckpt_name, embedding_generator_path=embeddings_model) # if ckpt_name is None bot gets last ckpt
+bpe_enable = os.environ.get("CHITCHAT_BPE_ENABLE") #Optional, it can be not defined
+
+bpe_enc_enable = os.environ.get("CHITCHAT_BPE_ENC_ENABLE") #Optional, it can be not defined
+bpe_dec_enable = os.environ.get("CHITCHAT_BPE_DEC_ENABLE") #Optional, it can be not defined
+
+bpe_enc_enable = bpe_enable or bpe_enc_enable
+bpe_dec_enable = bpe_enable or bpe_dec_enable
+
+agents = Agents(model_path, ckpt_name = ckpt_name,
+    embedding_generator_path=embeddings_model, bpe_enc=bpe_enc_enable, bpe_dec=bpe_dec_enable) # if ckpt_name is None bot gets last ckpt
 
 agent_id = '0' # Id for new agent
 # agents.deploy_agent(id = agent_id, reset = True) # if reset is True and agent is exist then agent context will be reseted. Reset is True by default.
