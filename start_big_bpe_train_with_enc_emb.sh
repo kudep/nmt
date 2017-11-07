@@ -1,8 +1,8 @@
 #! /bin/bash
-#git commit ae904fec96f71e6fb93f9dc5dace631a8f7fc9b8
-export model_path="/home/kuznetsov/tmp/thread22"
+#git commit
+export model_path="/home/kuznetsov/tmp/thread23"
 export generator_path="/home/kuznetsov/embeddings/fasttext/models/model-l+w+2t-1/lenta+wiki+ted+tedx-1.bin"
-# rm -rf ${model_path}/model
+rm -rf ${model_path}/model
 mkdir  ${model_path}/model
 #--pretrain_enc_emb_path=${model_path}/data/enc_embeddings.emb \
 #--pretrain_dec_emb_path=${model_path}/data/dec_embeddings.emb \
@@ -17,19 +17,20 @@ mkdir  ${model_path}/model
 
 python -m nmt.nmt     \
   --src=cor --tgt=man     \
+  --embedding_generator_path=${generator_path} \
+  --pretrain_enc_emb_path=${model_path}/data/enc_embeddings.emb \
   --vocab_prefix=${model_path}/data/vocab     \
   --train_prefix=${model_path}/data/train     \
   --dev_prefix=${model_path}/data/dev_test     \
   --test_prefix=${model_path}/data/test     \
   --out_dir=${model_path}/model     \
   --bpe_delimiter @@ \
-  --share_vocab True \
   --encoder_type bi \
   --batch_size 128     \
   --num_train_steps=3000000     \
   --steps_per_stats=100     \
   --num_layers=2     \
-  --num_units=512     \
+  --num_units=2048     \
   --dropout=0.2     \
   --src_max_len=140    \
   --tgt_max_len=140  \
