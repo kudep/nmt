@@ -210,22 +210,33 @@ class Agents():
         else:
             assert speaker=="human"
             cor_context.insert(0,line)
-        assert context_len >= man_context_len
-        man_iter = min(len(man_context), man_context_len)
+        assert context_len > man_context_len
+        half_context_len = context_len//2
+
+        man_iter = min(len(man_context), man_context_len, man_context_len)
+        cor_iter = min(len(cor_context), context_len, context_len - man_context_len)
+
+        share_iter_max = min(man_iter,cor_iter)
+        addition_iter_max = max(man_iter,cor_iter)
+
+        excluding_man = man_iter > cor_iter
+
         man_context = man_context[0:man_iter]
-        cor_iter = min(len(cor_context), context_len)
-        man_context = man_context[0:man_iter]
+        cor_context = cor_context[0:cor_iter]
 
         #Share filling
         # man_context.reverse()
-        for idx in range(man_iter):
+        for idx in range(share_iter_max):
             context.append(cor_context[idx])
             context.append(man_context[idx])
         # man_context.reverse()
 
         #Corparete filling
-        for idx in range(man_iter,cor_iter,1):
-            context.append(cor_context[idx])
+        for idx in range(share_iter_max,addition_iter_max,1):
+            if excluding_man:
+                context.append(man_context[idx])
+            else:
+                context.append(cor_context[idx])
         context.reverse()
         self.agents_memory[agent_id].cor_context = cor_context
         self.agents_memory[agent_id].man_context = man_context

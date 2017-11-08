@@ -106,3 +106,5 @@ sess.ipynb
 # atom ftp
 .ftpconfig
 .ftpignore
+#bot configurations
+bots/data
