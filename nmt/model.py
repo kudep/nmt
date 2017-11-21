@@ -265,6 +265,10 @@ class BaseModel(object):
       if self.mode != tf.contrib.learn.ModeKeys.INFER:
         with tf.device(model_helper.get_device_str(num_layers - 1, num_gpus)):
           loss = self._compute_loss(logits)
+          # #
+          # hidden_weights = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'decoder/*')
+          # reg_losses =tf.reduce_mean( 0.01*tf.nn.l2_loss(hidden_weights))
+          # loss = loss + reg_losses
       else:
         loss = None
 

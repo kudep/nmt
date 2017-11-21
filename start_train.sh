@@ -4,6 +4,7 @@ export model_path="/home/kuznetsov/tmp/thread8"
 export generator_path="/home/kuznetsov/embeddings/fasttext/models/lenta+wiki+ted+tedx/lenta+wiki+ted+tedx-0.bin"
 # rm -rf ${model_path}/model
 mkdir  ${model_path}/model
+cp -v $0 ${model_path}/model
 
 
 python -m nmt.nmt     \

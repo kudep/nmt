@@ -1,6 +1,6 @@
 #! /bin/bash
-#git commit 7ea94b6
-export model_path="/home/kuznetsov/tmp/thread23"
+#git commit
+export model_path="/home/kuznetsov/tmp/thread28"
 export generator_path="/home/kuznetsov/embeddings/fasttext/models/model-l+w+2t-1/lenta+wiki+ted+tedx-1.bin"
 rm -rf ${model_path}/model
 mkdir  ${model_path}/model
@@ -30,7 +30,7 @@ python -m nmt.nmt     \
   --batch_size 128     \
   --num_train_steps=3000000     \
   --steps_per_stats=100     \
-  --num_layers=2     \
+  --num_layers=4     \
   --num_units=2048     \
   --dropout=0.2     \
   --src_max_len=140    \

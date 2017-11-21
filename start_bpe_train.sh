@@ -4,6 +4,7 @@ export model_path="/home/kuznetsov/tmp/thread21"
 export generator_path="/home/kuznetsov/embeddings/fasttext/models/model-l+w+2t-1/lenta+wiki+ted+tedx-1.bin"
 # rm -rf ${model_path}/model
 mkdir  ${model_path}/model
+cp -v $0 ${model_path}/model
 #--pretrain_enc_emb_path=${model_path}/data/enc_embeddings.emb \
 #--pretrain_dec_emb_path=${model_path}/data/dec_embeddings.emb \
 #--share_vocab True \
