@@ -109,10 +109,16 @@ class BaseModel(object):
     #       self.output_layer = layers_core.Dense(
     #           hparams.tgt_vocab_size, use_bias=False, name="output_projection")
     # Projection
+
+    # Projection
+    def modern_softmax(logits):
+        VAR_ABILITY = 1.1
+        # logits = tf.one_hot(tf.reshape(tf.multinomial(logits/VAR_ABILITY,1), [-1]),self.tgt_vocab_size)
+        return logits
     with tf.variable_scope(scope or "build_network"):
       with tf.variable_scope("decoder/output_projection"):
         self.output_layer = layers_core.Dense(
-            hparams.tgt_vocab_size, use_bias=False, name="output_projection")
+            hparams.tgt_vocab_size, use_bias=False, name="output_projection", activation=modern_softmax)
 
     # To make it flexible for external code to add other cell types
     # If not specified, we will later use model_helper._single_cell
