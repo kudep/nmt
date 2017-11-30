@@ -112,7 +112,7 @@ class BaseModel(object):
 
     # Projection
     def modern_softmax(logits):
-        VAR_ABILITY = 2.0
+        VAR_ABILITY = 1.1
         # logits = tf.one_hot(tf.reshape(tf.multinomial(logits/VAR_ABILITY,1), [-1]),self.tgt_vocab_size)
         return logits
     with tf.variable_scope(scope or "build_network"):
